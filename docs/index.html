@@ -180,13 +180,17 @@
   var traitInput=document.getElementById('traitInput');
 
   // Create person by Enter (centered)
-  nameInput.addEventListener('keydown', function(e){
-    if(e.key==='Enter'){
-      var nm=nameInput.value.trim(); if(!nm) return;
-      var p=new Person(nm, canvas.width/2, canvas.height/2);
-      people.push(p); activePerson=p; nameInput.value=''; redraw();
-    }
-  });
+nameInput.addEventListener('keydown', function(e){
+  if(e.key==='Enter'){
+    var nm=nameInput.value.trim(); if(!nm) return;
+    var p=new Person(nm, canvas.width/2, canvas.height/2);
+    people.push(p); activePerson=p; nameInput.value='';
+    saveState();            // 🔐 persist
+    redraw();               // 🎨 repaint
+    renderSuggestions();    // 💡 refresh right-side suggestions
+  }
+});
+
 
   // Hover + drag behavior
   canvas.addEventListener('mousemove', function(e){
