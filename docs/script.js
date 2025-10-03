@@ -3,6 +3,7 @@ const ctx = canvas.getContext('2d');
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
+// set font so text actually renders
 ctx.font = "14px monospace";
 ctx.fillStyle = "white";
 
@@ -20,29 +21,28 @@ class Person {
 
   addTrait(trait) {
     if (!trait) return;
-    this.traits.push({ text: trait, angle: Math.random()*Math.PI*2, dist: 100 + Math.random()*50 });
-    // simple fake generated behavior
+    this.traits.push({ text: trait, angle: Math.random() * Math.PI * 2, dist: 100 + Math.random() * 50 });
     if (this.traits.length > 1) {
       this.generated.push({
-        text: `${this.traits[this.traits.length-2].text}+${trait}`,
-        angle: Math.random()*Math.PI*2,
+        text: `${this.traits[this.traits.length - 2].text}+${trait}`,
+        angle: Math.random() * Math.PI * 2,
         dist: 180
       });
     }
   }
 
   draw() {
-    // draw center
+    // central node
     ctx.fillStyle = 'white';
     ctx.beginPath();
-    ctx.arc(this.x, this.y, 8, 0, Math.PI*2);
+    ctx.arc(this.x, this.y, 8, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillText(this.name, this.x+12, this.y+4);
+    ctx.fillText(this.name, this.x + 12, this.y + 4);
 
-    // draw traits
+    // traits
     this.traits.forEach(t => {
-      const tx = this.x + Math.cos(t.angle)*t.dist;
-      const ty = this.y + Math.sin(t.angle)*t.dist;
+      const tx = this.x + Math.cos(t.angle) * t.dist;
+      const ty = this.y + Math.sin(t.angle) * t.dist;
       ctx.strokeStyle = '#444';
       ctx.beginPath();
       ctx.moveTo(this.x, this.y);
@@ -50,15 +50,15 @@ class Person {
       ctx.stroke();
       ctx.fillStyle = 'white';
       ctx.beginPath();
-      ctx.arc(tx, ty, 6, 0, Math.PI*2);
+      ctx.arc(tx, ty, 6, 0, Math.PI * 2);
       ctx.fill();
-      ctx.fillText(t.text, tx+10, ty);
+      ctx.fillText(t.text, tx + 10, ty);
     });
 
-    // draw generated behaviors
+    // generated behaviors
     this.generated.forEach(g => {
-      const gx = this.x + Math.cos(g.angle)*g.dist;
-      const gy = this.y + Math.sin(g.angle)*g.dist;
+      const gx = this.x + Math.cos(g.angle) * g.dist;
+      const gy = this.y + Math.sin(g.angle) * g.dist;
       ctx.strokeStyle = '#800';
       ctx.beginPath();
       ctx.moveTo(this.x, this.y);
@@ -66,20 +66,25 @@ class Person {
       ctx.stroke();
       ctx.fillStyle = '#ff0040';
       ctx.beginPath();
-      ctx.arc(gx, gy, 6, 0, Math.PI*2);
+      ctx.arc(gx, gy, 6, 0, Math.PI * 2);
       ctx.fill();
-      ctx.fillText(g.text, gx+10, gy);
+      ctx.fillText(g.text, gx + 10, gy);
     });
   }
 }
 
 function redraw() {
-  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.fillStyle = 'black';
-  ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
   people.forEach(p => p.draw());
 }
 
+// Always create a test node so we know rendering works
+people.push(new Person("TEST", canvas.width/2, canvas.height/2));
+redraw();
+
+// Add person by clicking
 canvas.addEventListener('click', e => {
   const name = document.getElementById('nameInput').value.trim();
   if (name) {
@@ -92,31 +97,19 @@ canvas.addEventListener('click', e => {
   }
 });
 
-// Add person by pressing Enter in name box
-document.getElementById('nameInput').addEventListener('keydown', e => {
-  if (e.key === 'Enter') {
-    const name = e.target.value.trim();
-    if (name) {
-      const p = new Person(name, canvas.width/2, canvas.height/2); // center placement
-      people.push(p);
-      activePerson = p;
-      e.target.value = '';
-      console.log("Added person:", name);
-      redraw();
-    }
-  }
-});
-
-// Old click logic (still works if you type a name then click canvas)
-canvas.addEventListener('click', e => {
-  const name = document.getElementById('nameInput').value.trim();
-  if (name) {
-    const p = new Person(name, e.clientX, e.clientY);
-    people.push(p);
-    activePerson = p;
-    document.getElementById('nameInput').value = '';
-    console.log("Added person:", name);
+// Add traits by pressing Enter
+document.getElementById('traitInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && activePerson) {
+    activePerson.addTrait(e.target.value.trim());
+    console.log("Added trait:", e.target.value.trim());
+    e.target.value = '';
     redraw();
   }
 });
 
+window.addEventListener('resize', () => {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  ctx.font = "14px monospace";
+  redraw();
+});
