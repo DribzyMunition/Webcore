@@ -243,7 +243,12 @@ canvas.addEventListener('mousedown', function(e){
 });
 
 
-  window.addEventListener('mouseup', function(){ dragging.type=null; dragging.person=null; dragging.index=-1; });
+window.addEventListener('mouseup', function(){
+  // if we moved anything, persist positions
+  saveState();             // 🔐 store new coordinates
+  dragging.type=null; dragging.person=null; dragging.index=-1;
+});
+
 
   // Add trait by Enter → auto-combos to every previous trait
 traitInput.addEventListener('keydown', function(e){
