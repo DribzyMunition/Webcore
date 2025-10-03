@@ -28,7 +28,6 @@ class Person {
       dist: 100 + Math.random() * 50
     });
 
-    // generate simple fake behavior after 2 traits
     if (this.traits.length > 1) {
       this.generated.push({
         text: `${this.traits[this.traits.length - 2].text}+${trait}`,
@@ -80,7 +79,6 @@ class Person {
   }
 
   isHit(mx, my) {
-    // check if click is within 15px of center
     const dx = mx - this.x;
     const dy = my - this.y;
     return Math.sqrt(dx * dx + dy * dy) < 15;
@@ -95,33 +93,34 @@ function redraw() {
   people.forEach(p => p.draw());
 }
 
-// click to add person or select person
+// handle mouse down
 canvas.addEventListener('mousedown', e => {
   const nameInput = document.getElementById('nameInput');
   const name = nameInput.value.trim();
 
-  // check if clicked an existing person
+  // check existing people first
   for (let p of people) {
     if (p.isHit(e.clientX, e.clientY)) {
       activePerson = p;
       draggingPerson = p;
-      console.log("Selected person:", p.name);
+      console.log("Selected + dragging:", p.name);
       redraw();
       return;
     }
   }
 
-  // otherwise, add new person
+  // otherwise add new
   if (name) {
     const p = new Person(name, e.clientX, e.clientY);
     people.push(p);
     activePerson = p;
     nameInput.value = '';
-    console.log("Added person:", name);
+    console.log("Added new person:", name);
     redraw();
   }
 });
 
+// handle dragging
 canvas.addEventListener('mousemove', e => {
   if (draggingPerson) {
     draggingPerson.x = e.clientX;
@@ -130,11 +129,15 @@ canvas.addEventListener('mousemove', e => {
   }
 });
 
+// stop dragging
 canvas.addEventListener('mouseup', () => {
+  if (draggingPerson) {
+    console.log("Stopped dragging:", draggingPerson.name);
+  }
   draggingPerson = null;
 });
 
-// Add trait with Enter
+// add trait with Enter
 document.getElementById('traitInput').addEventListener('keydown', e => {
   if (e.key === 'Enter' && activePerson) {
     activePerson.addTrait(e.target.value.trim());
@@ -144,7 +147,7 @@ document.getElementById('traitInput').addEventListener('keydown', e => {
   }
 });
 
-// handle resize
+// resize
 window.addEventListener('resize', () => {
   canvas.width = window.innerWidth;
   canvas.height = window.innerHeight;
@@ -152,5 +155,4 @@ window.addEventListener('resize', () => {
   redraw();
 });
 
-// initial draw
 redraw();
