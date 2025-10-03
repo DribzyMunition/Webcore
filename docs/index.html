@@ -3,39 +3,25 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>webcore ▒ psychological modeller</title>
+<title>webcore ▒ psychological web</title>
 <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
 <header class="topbar">
 <div class="mark">webcore<span class="blink">_</span></div>
-<nav class="nav">
-<button id="runBtn" class="btn">RUN</button>
-<label class="toggle"><input id="apiToggle" type="checkbox"/> API</label>
-<a href="https://github.com/yourname/webcore" target="_blank" class="link">repo</a>
-</nav>
 </header>
 
 
-<main class="grid">
-<section class="panel">
-<h2>// scenario</h2>
-<textarea id="scenario" placeholder="Type the situation. Example: Agent A negotiates price with Agent B under time pressure; audience present; stakes medium."></textarea>
-<div class="row">
-<input id="personaA" placeholder="Agent A: dominant, confident, low agreeableness"/>
-<input id="personaB" placeholder="Agent B: cautious, agreeable, loss‑averse"/>
+<main>
+<canvas id="webCanvas"></canvas>
+<div class="controls">
+<input id="nameInput" placeholder="Enter name (click canvas to place)" />
+<input id="traitInput" placeholder="Enter trait (hit enter to add)" />
 </div>
-</section>
-
-
-<section class="panel">
-<h2>// output</h2>
-<pre id="output" class="output">⌛ waiting…</pre>
-</section>
 </main>
 
 
-<footer class="foot">© webcore — old // new mind</footer>
+<footer class="foot">© webcore — the web of minds</footer>
 <script src="script.js"></script>
 </body>
 </html>
