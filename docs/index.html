@@ -26,52 +26,60 @@
 
 <script>
 (function(){
-  // canvas
+  // canvas + sizing
   var canvas = document.getElementById('webCanvas');
   var ctx = canvas.getContext('2d');
   function resize(){ canvas.width=window.innerWidth; canvas.height=window.innerHeight; ctx.font='14px monospace'; }
-  resize();
-  window.addEventListener('resize', function(){ resize(); redraw(); });
+  resize(); window.addEventListener('resize', function(){ resize(); redraw(); });
 
   // model
   var people=[], activePerson=null;
-Person.prototype.addTrait = function(trait){
-  if (!trait) return;
+  function Person(name,x,y){ this.name=name; this.x=x; this.y=y; this.traits=[]; this.generated=[]; }
 
-  // add the new trait node
-  this.traits.push({
-    text: trait,
-    angle: Math.random() * Math.PI * 2,
-    dist: 100 + Math.random() * 50
-  });
+  // helper: polar -> cartesian relative to person center
+  function posOf(p, node){ return { x: p.x + Math.cos(node.angle)*node.dist, y: p.y + Math.sin(node.angle)*node.dist }; }
 
-  // create one generated behavior from the last two traits (for now)
-  if (this.traits.length > 1){
-    var aIdx = this.traits.length - 2;   // previous trait index
-    var bIdx = this.traits.length - 1;   // new trait index
-    var prevText = this.traits[aIdx].text;
+  Person.prototype.addTrait=function(trait){
+    if(!trait) return;
+    this.traits.push({ text:trait, angle:Math.random()*Math.PI*2, dist:100+Math.random()*50 });
+    // make a generated behavior from the last two traits & remember parents
+    if(this.traits.length>1){
+      var aIdx=this.traits.length-2, bIdx=this.traits.length-1;
+      var prev=this.traits[aIdx].text;
+      this.generated.push({ text: prev+' + '+trait, angle:Math.random()*Math.PI*2, dist:180, from:[aIdx,bIdx] });
+    }
+  };
 
-    this.generated.push({
-      text: prevText + ' + ' + trait,
-      angle: Math.random() * Math.PI * 2,
-      dist: 180,
-      from: [aIdx, bIdx]  // <<< remember which trait indexes birthed this
-    });
-  }
-};
-
-
-  // helpers
-  function posOf(p, node){ // node = trait or generated {angle,dist}
-    return { x: p.x + Math.cos(node.angle)*node.dist, y: p.y + Math.sin(node.angle)*node.dist };
-  }
-  function mouse(e){ var r=canvas.getBoundingClientRect(); return {x:e.clientX-r.left, y:e.clientY-r.top}; }
+  Person.prototype.isHit=function(mx,my){ var dx=mx-this.x,dy=my-this.y; return Math.sqrt(dx*dx+dy*dy)<=15; };
 
   // hover/drag state
-  var hover={type:null, person:null, index:-1}; // type: 'person' | 'trait' | 'gen'
+  var hover={type:null, person:null, index:-1};      // type: 'person'|'trait'|'gen'|null
   var dragging={type:null, person:null, index:-1, offx:0, offy:0};
 
-  // drawing
+  // utils
+  function mouse(e){ var r=canvas.getBoundingClientRect(); return {x:e.clientX-r.left, y:e.clientY-r.top}; }
+
+  // hit-test (topmost first)
+  function hitTest(mx,my){
+    for(var i=people.length-1;i>=0;i--){
+      var p=people[i], j, pt, dx, dy;
+      // generated
+      for(j=p.generated.length-1;j>=0;j--){
+        pt=posOf(p,p.generated[j]); dx=pt.x-mx; dy=pt.y-my;
+        if(Math.sqrt(dx*dx+dy*dy)<=9) return {type:'gen', person:p, index:j};
+      }
+      // traits
+      for(j=p.traits.length-1;j>=0;j--){
+        pt=posOf(p,p.traits[j]); dx=pt.x-mx; dy=pt.y-my;
+        if(Math.sqrt(dx*dx+dy*dy)<=9) return {type:'trait', person:p, index:j};
+      }
+      // person
+      if(p.isHit(mx,my)) return {type:'person', person:p, index:-1};
+    }
+    return {type:null, person:null, index:-1};
+  }
+
+  // draw
   function redraw(){
     ctx.clearRect(0,0,canvas.width,canvas.height);
     ctx.fillStyle='#000'; ctx.fillRect(0,0,canvas.width,canvas.height);
@@ -79,102 +87,60 @@ Person.prototype.addTrait = function(trait){
     for(var i=0;i<people.length;i++){
       var p=people[i];
 
-      // center
+      // center node
       ctx.fillStyle='#fff';
       ctx.beginPath(); ctx.arc(p.x,p.y,8,0,Math.PI*2); ctx.fill();
-      // active/hover halo
       if(p===activePerson || (hover.type==='person' && hover.person===p)){
-        ctx.strokeStyle='#666'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(p.x,p.y,12,0,Math.PI*2); ctx.stroke(); ctx.lineWidth=1;
+        ctx.strokeStyle='#666'; ctx.beginPath(); ctx.arc(p.x,p.y,12,0,Math.PI*2); ctx.stroke();
       }
-      ctx.fillText(p.name,p.x+12,p.y+4);
+      ctx.fillText(p.name, p.x+12, p.y+4);
 
-      // traits
+      // trait spokes + nodes
       for(var t=0;t<p.traits.length;t++){
-        var node=p.traits[t], pt=posOf(p,node);
+        var tn=p.traits[t], pt=posOf(p,tn);
         ctx.strokeStyle='#444'; ctx.beginPath(); ctx.moveTo(p.x,p.y); ctx.lineTo(pt.x,pt.y); ctx.stroke();
         ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(pt.x,pt.y,6,0,Math.PI*2); ctx.fill();
         if(hover.type==='trait' && hover.person===p && hover.index===t){ ctx.strokeStyle='#888'; ctx.beginPath(); ctx.arc(pt.x,pt.y,9,0,Math.PI*2); ctx.stroke(); }
-        ctx.fillText(node.text, pt.x+10, pt.y);
+        ctx.fillText(tn.text, pt.x+10, pt.y);
       }
 
-// generated behaviors (red)
-for (var g=0; g<p.generated.length; g++){
-  var gen = p.generated[g], pg = posOf(p, gen);
-
-  // link from center to generated (keep the spine)
-  ctx.strokeStyle = '#800';
-  ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(pg.x, pg.y); ctx.stroke();
-
-  // NEW: links from generated → its parent trait orbs
-  if (gen.from && gen.from.length){
-    ctx.strokeStyle = '#c33';
-    for (var k=0; k<gen.from.length; k++){
-      var tIndex = gen.from[k];
-      var parentTrait = p.traits[tIndex];
-      if (!parentTrait) continue;
-      var pt = posOf(p, parentTrait);
-      ctx.beginPath(); ctx.moveTo(pg.x, pg.y); ctx.lineTo(pt.x, pt.y); ctx.stroke();
+      // generated spokes + parent links + nodes (red)
+      for(var g=0; g<p.generated.length; g++){
+        var gn=p.generated[g], pg=posOf(p,gn);
+        // center → red
+        ctx.strokeStyle='#800'; ctx.beginPath(); ctx.moveTo(p.x,p.y); ctx.lineTo(pg.x,pg.y); ctx.stroke();
+        // red → parents
+        if(gn.from && gn.from.length){
+          ctx.strokeStyle='#c33';
+          for(var k=0;k<gn.from.length;k++){
+            var idx=gn.from[k], parent=p.traits[idx]; if(!parent) continue;
+            var pp=posOf(p,parent);
+            ctx.beginPath(); ctx.moveTo(pg.x,pg.y); ctx.lineTo(pp.x,pp.y); ctx.stroke();
+          }
+        }
+        // node + hover
+        ctx.fillStyle='#ff0040'; ctx.beginPath(); ctx.arc(pg.x,pg.y,6,0,Math.PI*2); ctx.fill();
+        if(hover.type==='gen' && hover.person===p && hover.index===g){ ctx.strokeStyle='#c44'; ctx.beginPath(); ctx.arc(pg.x,pg.y,9,0,Math.PI*2); ctx.stroke(); }
+        ctx.fillStyle='#ff0040'; ctx.fillText(gn.text, pg.x+10, pg.y);
+      }
     }
-  }
-
-  // node
-  ctx.fillStyle = '#ff0040';
-  ctx.beginPath(); ctx.arc(pg.x, pg.y, 6, 0, Math.PI*2); ctx.fill();
-
-  // hover ring
-  if (hover.type==='gen' && hover.person===p && hover.index===g){
-    ctx.strokeStyle='#c44'; ctx.beginPath(); ctx.arc(pg.x,pg.y,9,0,Math.PI*2); ctx.stroke();
-  }
-
-  // label
-  ctx.fillStyle = '#ff0040';
-  ctx.fillText(gen.text, pg.x+10, pg.y);
-}
-
-    }
-
-    // cursor
     canvas.style.cursor = hover.type ? 'pointer' : (dragging.type ? 'grabbing' : 'default');
-  }
-
-  // hit-test
-  function hitTest(mx,my){
-    // topmost first: generated -> traits -> person center
-    for(var i=people.length-1;i>=0;i--){
-      var p=people[i];
-
-      // generated
-      for(var g=p.generated.length-1; g>=0; g--){
-        var pg=posOf(p,p.generated[g]); var dx=my-pg.y, dy=mx-pg.x; // reuse variables
-        dx = pg.x - mx; dy = pg.y - my;
-        if(Math.sqrt(dx*dx+dy*dy)<=9) return {type:'gen',person:p,index:g};
-      }
-
-      // traits
-      for(var t=p.traits.length-1; t>=0; t--){
-        var pt=posOf(p,p.traits[t]); var dx2=pt.x-mx, dy2=pt.y-my;
-        if(Math.sqrt(dx2*dx2+dy2*dy2)<=9) return {type:'trait',person:p,index:t};
-      }
-
-      // person
-      if(p.isHit(mx,my)) return {type:'person',person:p,index:-1};
-    }
-    return {type:null, person:null, index:-1};
   }
 
   // inputs
   var nameInput=document.getElementById('nameInput');
   var traitInput=document.getElementById('traitInput');
 
+  // create by Enter (centered)
   nameInput.addEventListener('keydown', function(e){
     if(e.key==='Enter'){
       var nm=nameInput.value.trim(); if(!nm) return;
       var p=new Person(nm, canvas.width/2, canvas.height/2);
-      people.push(p); activePerson=p; nameInput.value='';
-      redraw();
+      people.push(p); activePerson=p; nameInput.value=''; redraw();
     }
   });
 
+  // hover + drag
   canvas.addEventListener('mousemove', function(e){
     var m=mouse(e);
     if(dragging.type){
@@ -182,57 +148,43 @@ for (var g=0; g<p.generated.length; g++){
         dragging.person.x = m.x - dragging.offx;
         dragging.person.y = m.y - dragging.offy;
       } else {
-        // dragging a node → recompute angle/dist relative to person center
-        var pr=dragging.person;
-        var dx=m.x - pr.x, dy=m.y - pr.y;
+        var pr=dragging.person, dx=m.x-pr.x, dy=m.y-pr.y;
         var node = dragging.type==='trait' ? pr.traits[dragging.index] : pr.generated[dragging.index];
-        node.angle = Math.atan2(dy,dx);
-        node.dist  = Math.sqrt(dx*dx+dy*dy);
+        node.angle = Math.atan2(dy,dx); node.dist = Math.sqrt(dx*dx+dy*dy);
       }
-      redraw();
-      return;
+      redraw(); return;
     }
-    hover = hitTest(m.x,m.y);
-    redraw();
+    hover = hitTest(m.x,m.y); redraw();
   });
 
   canvas.addEventListener('mousedown', function(e){
-    var m=mouse(e);
-    var h=hitTest(m.x,m.y);
+    var m=mouse(e), h=hitTest(m.x,m.y);
 
-    if(h.type){ // select & maybe start dragging
+    if(h.type){
       activePerson=h.person;
-
-      // bring selected person to front
       var idx=people.indexOf(h.person); if(idx>-1){ var pulled=people.splice(idx,1)[0]; people.push(pulled); }
-
       if(h.type==='person'){
         dragging.type='person'; dragging.person=h.person;
-        dragging.offx = m.x - h.person.x; dragging.offy = m.y - h.person.y;
+        dragging.offx=m.x-h.person.x; dragging.offy=m.y-h.person.y;
       } else {
         dragging.type=h.type; dragging.person=h.person; dragging.index=h.index;
       }
-      redraw();
-      return;
+      redraw(); return;
     }
 
-    // empty space: create new if name present
     var nm=nameInput.value.trim();
     if(nm){
-      var p=new Person(nm, m.x, m.y); people.push(p); activePerson=p; nameInput.value='';
-      redraw();
+      var p2=new Person(nm, m.x, m.y); people.push(p2); activePerson=p2; nameInput.value=''; redraw();
     }
   });
 
-  window.addEventListener('mouseup', function(){
-    dragging.type=null; dragging.person=null; dragging.index=-1;
-  });
+  window.addEventListener('mouseup', function(){ dragging.type=null; dragging.person=null; dragging.index=-1; });
 
+  // add trait by Enter
   traitInput.addEventListener('keydown', function(e){
     if(e.key==='Enter' && activePerson){
       var t=traitInput.value.trim(); if(!t) return;
-      activePerson.addTrait(t); traitInput.value='';
-      redraw();
+      activePerson.addTrait(t); traitInput.value=''; redraw();
     }
   });
 
