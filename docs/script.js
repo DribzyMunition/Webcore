@@ -92,20 +92,31 @@ canvas.addEventListener('click', e => {
   }
 });
 
-document.getElementById('traitInput').addEventListener('keydown', e => {
-  if (e.key === 'Enter' && activePerson) {
-    activePerson.addTrait(e.target.value.trim());
-    console.log("Added trait:", e.target.value.trim());
-    e.target.value = '';
+// Add person by pressing Enter in name box
+document.getElementById('nameInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') {
+    const name = e.target.value.trim();
+    if (name) {
+      const p = new Person(name, canvas.width/2, canvas.height/2); // center placement
+      people.push(p);
+      activePerson = p;
+      e.target.value = '';
+      console.log("Added person:", name);
+      redraw();
+    }
+  }
+});
+
+// Old click logic (still works if you type a name then click canvas)
+canvas.addEventListener('click', e => {
+  const name = document.getElementById('nameInput').value.trim();
+  if (name) {
+    const p = new Person(name, e.clientX, e.clientY);
+    people.push(p);
+    activePerson = p;
+    document.getElementById('nameInput').value = '';
+    console.log("Added person:", name);
     redraw();
   }
 });
 
-window.addEventListener('resize', ()=>{
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
-  ctx.font = "14px monospace";
-  redraw();
-});
-
-redraw();
