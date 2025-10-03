@@ -211,26 +211,37 @@ nameInput.addEventListener('keydown', function(e){
     redraw();
   });
 
-  canvas.addEventListener('mousedown', function(e){
-    var m=mouse(e), h=hitTest(m.x,m.y);
+canvas.addEventListener('mousedown', function(e){
+  var m=mouse(e), h=hitTest(m.x,m.y);
 
-    if(h.type){
-      activePerson=h.person;
-      var idx=people.indexOf(h.person); if(idx>-1){ var pulled=people.splice(idx,1)[0]; people.push(pulled); }
-      if(h.type==='person'){
-        dragging.type='person'; dragging.person=h.person;
-        dragging.offx=m.x-h.person.x; dragging.offy=m.y-h.person.y;
-      } else {
-        dragging.type=h.type; dragging.person=h.person; dragging.index=h.index;
-      }
-      redraw(); return;
+  if(h.type){
+    // A) selecting / dragging existing
+    activePerson=h.person;
+    var idx=people.indexOf(h.person); if(idx>-1){ var pulled=people.splice(idx,1)[0]; people.push(pulled); }
+    if(h.type==='person'){
+      dragging.type='person'; dragging.person=h.person;
+      dragging.offx=m.x-h.person.x; dragging.offy=m.y-h.person.y;
+    } else {
+      dragging.type=h.type; dragging.person=h.person; dragging.index=h.index;
     }
+    // Optional: save the z-order change
+    saveState();            // 🔐 (z-order changed when we bring to front)
+    redraw();
+    renderSuggestions();    // 💡 show suggestions for the newly active person
+    return;
+  }
 
-    var nm=nameInput.value.trim();
-    if(nm){
-      var p2=new Person(nm, m.x, m.y); people.push(p2); activePerson=p2; nameInput.value=''; redraw();
-    }
-  });
+  // B) create new person at click if a name is ready
+  var nm=nameInput.value.trim();
+  if(nm){
+    var p2=new Person(nm, m.x, m.y);
+    people.push(p2); activePerson=p2; nameInput.value='';
+    saveState();            // 🔐
+    redraw();               // 🎨
+    renderSuggestions();    // 💡
+  }
+});
+
 
   window.addEventListener('mouseup', function(){ dragging.type=null; dragging.person=null; dragging.index=-1; });
 
