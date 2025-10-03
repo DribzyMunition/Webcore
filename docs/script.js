@@ -21,7 +21,13 @@ class Person {
 
   addTrait(trait) {
     if (!trait) return;
-    this.traits.push({ text: trait, angle: Math.random() * Math.PI * 2, dist: 100 + Math.random() * 50 });
+    this.traits.push({
+      text: trait,
+      angle: Math.random() * Math.PI * 2,
+      dist: 100 + Math.random() * 50
+    });
+
+    // generate fake behavior after 2 traits
     if (this.traits.length > 1) {
       this.generated.push({
         text: `${this.traits[this.traits.length - 2].text}+${trait}`,
@@ -80,8 +86,8 @@ function redraw() {
   people.forEach(p => p.draw());
 }
 
-// Always create a test node so we know rendering works
-people.push(new Person("TEST", canvas.width/2, canvas.height/2));
+// Drop a test node so you see something immediately
+people.push(new Person("TEST", canvas.width / 2, canvas.height / 2));
 redraw();
 
 // Add person by clicking
