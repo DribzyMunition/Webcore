@@ -14,6 +14,14 @@
 
 <main>
 <canvas id="webCanvas"></canvas>
+  <!-- Suggestions panel -->
+<aside id="sidepanel" class="sidepanel">
+  <div class="side-title">// suggestions</div>
+  <div id="sugCombos"></div>
+  <div class="side-title">// quick probe</div>
+  <div id="sugProbe"></div>
+</aside>
+
 <div class="controls">
 <input id="nameInput" placeholder="Enter name (click canvas to place)" />
 <input id="traitInput" placeholder="Enter trait (hit enter to add)" />
@@ -32,6 +40,7 @@
   function resize(){ canvas.width=window.innerWidth; canvas.height=window.innerHeight; ctx.font='14px monospace'; }
   resize();
   window.addEventListener('resize', function(){ resize(); redraw(); });
+
 
   // =================== Model =============================
   var people=[], activePerson=null;
