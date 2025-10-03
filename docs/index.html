@@ -246,12 +246,16 @@ canvas.addEventListener('mousedown', function(e){
   window.addEventListener('mouseup', function(){ dragging.type=null; dragging.person=null; dragging.index=-1; });
 
   // Add trait by Enter → auto-combos to every previous trait
-  traitInput.addEventListener('keydown', function(e){
-    if(e.key==='Enter' && activePerson){
-      var t=traitInput.value.trim(); if(!t) return;
-      activePerson.addTrait(t); traitInput.value=''; redraw();
-    }
-  });
+traitInput.addEventListener('keydown', function(e){
+  if(e.key==='Enter' && activePerson){
+    var t=traitInput.value.trim(); if(!t) return;
+    activePerson.addTrait(t); traitInput.value='';
+    saveState();            // 🔐 store new trait + any generated combos
+    redraw();               // 🎨
+    renderSuggestions();    // 💡 new combos now available
+  }
+});
+
 
   // first paint
   redraw();
