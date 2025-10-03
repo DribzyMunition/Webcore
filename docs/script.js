@@ -1,88 +1,90 @@
-const scenarioEl = document.getElementById('scenario');
-const personaAEl = document.getElementById('personaA');
-const personaBEl = document.getElementById('personaB');
-const outputEl = document.getElementById('output');
-const runBtn = document.getElementById('runBtn');
-const apiToggle = document.getElementById('apiToggle');
+const canvas = document.getElementById('webCanvas');
+const ctx = canvas.getContext('2d');
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
 
 
-runBtn.addEventListener('click', async () => {
-outputEl.textContent = '⏳ analysing…';
-const payload = {
-scenario: scenarioEl.value.trim(),
-agentA: personaAEl.value.trim(),
-agentB: personaBEl.value.trim()
-};
+let people = []; // array of webs
+let activePerson = null;
 
 
-if (apiToggle.checked) {
-try {
-const res = await fetch('http://localhost:8000/api/analyze', {
-method: 'POST', headers: { 'Content-Type': 'application/json' },
-body: JSON.stringify(payload)
+class Person {
+constructor(name, x, y) {
+this.name = name;
+this.x = x;
+this.y = y;
+this.traits = [];
+this.generated = [];
+}
+
+
+addTrait(trait) {
+this.traits.push({ text: trait, angle: Math.random()*Math.PI*2, dist: 100 + Math.random()*50 });
+// placeholder: generate a fake behavior for now
+if (this.traits.length > 1) {
+this.generated.push({ text: this.traits[this.traits.length-2].text + "+" + trait, angle: Math.random()*Math.PI*2, dist: 180 });
+}
+}
+
+
+draw() {
+ctx.fillStyle = 'white';
+ctx.beginPath();
+ctx.arc(this.x, this.y, 8, 0, Math.PI*2);
+ctx.fill();
+ctx.fillText(this.name, this.x+12, this.y+4);
+
+
+// traits
+this.traits.forEach(t => {
+const tx = this.x + Math.cos(t.angle)*t.dist;
+const ty = this.y + Math.sin(t.angle)*t.dist;
+ctx.strokeStyle = '#444';
+ctx.beginPath();
+ctx.moveTo(this.x, this.y);
+ctx.lineTo(tx, ty);
+ctx.stroke();
+ctx.fillStyle = 'white';
+ctx.beginPath();
+ctx.arc(tx, ty, 6, 0, Math.PI*2);
+ctx.fill();
+ctx.fillText(t.text, tx+10, ty);
 });
-const data = await res.json();
-outputEl.textContent = formatReport(data);
-return;
-} catch (e) {
-outputEl.textContent = 'API error. Falling back to local heuristics.';
-}
-}
 
 
-// Local heuristic fallback (v0): keyword cues + simple weights
-const report = localHeuristics(payload);
-outputEl.textContent = formatReport(report);
+// generated behaviors
+this.generated.forEach(g => {
+const gx = this.x + Math.cos(g.angle)*g.dist;
+const gy = this.y + Math.sin(g.angle)*g.dist;
+ctx.strokeStyle = '#800';
+ctx.beginPath();
+ctx.moveTo(this.x, this.y);
+ctx.lineTo(gx, gy);
+ctx.stroke();
+ctx.fillStyle = '#ff0040';
+ctx.beginPath();
+ctx.arc(gx, gy, 6, 0, Math.PI*2);
+ctx.fill();
+ctx.fillText(g.text, gx+10, gy);
 });
-
-
-function localHeuristics({ scenario, agentA, agentB }) {
-const txt = `${scenario} ${agentA} ${agentB}`.toLowerCase();
-const cues = {
-loss_aversion: /(loss|risk|fear|penalty|downside|price drop)/g,
-time_pressure: /(deadline|time|clock|rush|hurry|minutes)/g,
-social_audience: /(audience|public|room|press|board|investors)/g,
-dominance: /(dominant|assert|strong|power|control)/g,
-agreeableness: /(agreeable|friendly|cooperate|rapport)/g,
-scarcity: /(scarce|limited|only|few|last)/g,
-reciprocity: /(favor|return|owed|debt|gift)/g
-};
-const score = {};
-for (const k in cues) score[k] = matches(txt, cues[k]);
-
-
-const moves = [];
-if (score.loss_aversion > 0) moves.push('Frame upside vs. **certain** downside to trigger loss aversion. Offer safety valve.');
-if (score.time_pressure > 0) moves.push('Compress choices. Short, binary options. Anchor early.');
-if (score.social_audience > 0) moves.push('Protect status in public. Offer face‑saving exits.');
-if (score.dominance > score.agreeableness) moves.push('Meet dominance with calm, low‑reactive posture. Understate power.');
-if (score.agreeableness > score.dominance) moves.push('Lean into rapport and reciprocity. Slow the frame.');
-if (score.scarcity > 0) moves.push('Make scarcity legible, not loud. Provide a clock.');
-if (score.reciprocity > 0) moves.push('Seed a favor → ask. Keep it specific and timed.');
-
-
-return {
-scores: score,
-brief: pickBrief(score),
-moves
-};
+}
 }
 
 
-function matches(txt, re) { return (txt.match(re) || []).length; }
-
-
-function pickBrief(s) {
-const keys = Object.entries(s).sort((a,b)=>b[1]-a[1]).map(([k])=>k);
-const top = keys.slice(0,3).map(k=>k.replace('_',' ')).join(' · ');
-return `Primary forces: ${top || 'insufficient signal'}`;
+function redraw() {
+ctx.clearRect(0,0,canvas.width,canvas.height);
+ctx.fillStyle = 'black';
+ctx.fillRect(0,0,canvas.width,canvas.height);
+people.forEach(p => p.draw());
 }
 
 
-function formatReport({ scores, brief, moves }) {
-const table = Object.entries(scores || {})
-.map(([k,v]) => `${k.padEnd(16,' ')} : ${v}`)
-.join('\n');
-const steps = (moves || []).map((m,i)=>`- ${m}`).join('\n');
-return `>>> webcore // psychological modeller\n\n${brief}\n\n[signal]\n${table}\n\n[moves]\n${steps || '- add more detail for analysis'}`;
-}
+canvas.addEventListener('click', e => {
+if (document.getElementById('nameInput').value.trim()) {
+const name = document.getElementById('nameInput').value.trim();
+const p = new Person(name, e.clientX, e.clientY);
+people.push(p);
+activePerson = p;
+document.getElementById('nameInput').value = '';
+redraw();
+redraw();
