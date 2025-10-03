@@ -26,44 +26,82 @@
 
 <script>
 (function(){
-  // canvas + sizing
+  // =================== Canvas & sizing ===================
   var canvas = document.getElementById('webCanvas');
   var ctx = canvas.getContext('2d');
   function resize(){ canvas.width=window.innerWidth; canvas.height=window.innerHeight; ctx.font='14px monospace'; }
-  resize(); window.addEventListener('resize', function(){ resize(); redraw(); });
+  resize();
+  window.addEventListener('resize', function(){ resize(); redraw(); });
 
-  // model
+  // =================== Model =============================
   var people=[], activePerson=null;
+
   function Person(name,x,y){ this.name=name; this.x=x; this.y=y; this.traits=[]; this.generated=[]; }
 
-  // helper: polar -> cartesian relative to person center
+  // --- helpers
   function posOf(p, node){ return { x: p.x + Math.cos(node.angle)*node.dist, y: p.y + Math.sin(node.angle)*node.dist }; }
+  function angleAvg(a,b){ var x=Math.cos(a)+Math.cos(b), y=Math.sin(a)+Math.sin(b); return Math.atan2(y,x); }
+  function hasGenForPair(p, aIdx, bIdx){
+    for(var i=0;i<p.generated.length;i++){
+      var f=p.generated[i].from; if(!f) continue;
+      if((f[0]===aIdx && f[1]===bIdx) || (f[0]===bIdx && f[1]===aIdx)) return true;
+    }
+    return false;
+  }
 
+  // ---------- Tiny “math” combiner (v0) ----------
+  // 1) categorize traits from text
+  function cat(tr){
+    tr = (tr||'').toLowerCase();
+    if(tr.indexOf('generous')>-1 || tr.indexOf('kind')>-1 || tr.indexOf('giving')>-1) return 'warmth';
+    if(tr.indexOf('ambit')>-1 || tr.indexOf('driven')>-1 || tr.indexOf('domin')>-1) return 'dominance';
+    if(tr.indexOf('excuse')>-1 || tr.indexOf('blame')>-1 || tr.indexOf('avoid')>-1) return 'avoidance';
+    if(tr.indexOf('isolat')>-1 || tr.indexOf('withdraw')>-1 || tr.indexOf('lonely')>-1) return 'withdrawal';
+    if(tr.indexOf('attent')>-1 || tr.indexOf('perform')>-1 || tr.indexOf('show')>-1) return 'attention';
+    if(tr.indexOf('anx')>-1 || tr.indexOf('risk-averse')>-1 || tr.indexOf('fear')>-1) return 'anxiety';
+    if(tr.indexOf('scarce')>-1 || tr.indexOf('rare')>-1 || tr.indexOf('last')>-1) return 'scarcity';
+    return 'other';
+  }
+  // 2) label generator for a pair of traits
+  function comboLabel(a, b){
+    var A=cat(a), B=cat(b); var pair=A+'+'+B;
+    if((A==='warmth' && B==='attention')||(A==='attention'&&B==='warmth')) return 'performative generosity';
+    if((A==='dominance' && B==='avoidance')||(A==='avoidance'&&B==='dominance')) return 'fragile ambition';
+    if((A==='withdrawal' && B==='attention')||(A==='attention'&&B==='withdrawal')) return 'overcompensation in public';
+    if((A==='anxiety' && B==='scarcity')||(A==='scarcity'&&B==='anxiety')) return 'panic scarcity response';
+    if((A==='dominance' && B==='attention')||(A==='attention'&&B==='dominance')) return 'status display';
+    if((A==='warmth' && B==='avoidance')||(A==='avoidance'&&B==='warmth')) return 'soft exit seeking';
+    // fallback:
+    return a + ' × ' + b;
+  }
+
+  // Add a trait, and create combo nodes linking to the new trait + all previous ones
   Person.prototype.addTrait=function(trait){
     if(!trait) return;
     this.traits.push({ text:trait, angle:Math.random()*Math.PI*2, dist:100+Math.random()*50 });
-    // make a generated behavior from the last two traits & remember parents
-    if(this.traits.length>1){
-      var aIdx=this.traits.length-2, bIdx=this.traits.length-1;
-      var prev=this.traits[aIdx].text;
-      this.generated.push({ text: prev+' + '+trait, angle:Math.random()*Math.PI*2, dist:180, from:[aIdx,bIdx] });
+    var newIdx=this.traits.length-1;
+    for(var i=0;i<this.traits.length-1;i++){
+      if(hasGenForPair(this, i, newIdx)) continue;
+      var tA=this.traits[i], tB=this.traits[newIdx];
+      var ang = angleAvg(tA.angle, tB.angle);
+      var dst = (tA.dist + tB.dist)/2 + 20; // sit just outside their midpoint
+      var label = comboLabel(tA.text, tB.text);
+      this.generated.push({ text:label, angle:ang, dist:dst, from:[i,newIdx] });
     }
   };
 
   Person.prototype.isHit=function(mx,my){ var dx=mx-this.x,dy=my-this.y; return Math.sqrt(dx*dx+dy*dy)<=15; };
 
-  // hover/drag state
-  var hover={type:null, person:null, index:-1};      // type: 'person'|'trait'|'gen'|null
+  // =================== Interaction state =================
+  var hover={type:null, person:null, index:-1}; // 'person'|'trait'|'gen'|null
   var dragging={type:null, person:null, index:-1, offx:0, offy:0};
 
-  // utils
   function mouse(e){ var r=canvas.getBoundingClientRect(); return {x:e.clientX-r.left, y:e.clientY-r.top}; }
 
-  // hit-test (topmost first)
   function hitTest(mx,my){
     for(var i=people.length-1;i>=0;i--){
       var p=people[i], j, pt, dx, dy;
-      // generated
+      // generated (topmost small orbs first)
       for(j=p.generated.length-1;j>=0;j--){
         pt=posOf(p,p.generated[j]); dx=pt.x-mx; dy=pt.y-my;
         if(Math.sqrt(dx*dx+dy*dy)<=9) return {type:'gen', person:p, index:j};
@@ -73,13 +111,13 @@
         pt=posOf(p,p.traits[j]); dx=pt.x-mx; dy=pt.y-my;
         if(Math.sqrt(dx*dx+dy*dy)<=9) return {type:'trait', person:p, index:j};
       }
-      // person
+      // person center
       if(p.isHit(mx,my)) return {type:'person', person:p, index:-1};
     }
     return {type:null, person:null, index:-1};
   }
 
-  // draw
+  // =================== Draw ==============================
   function redraw(){
     ctx.clearRect(0,0,canvas.width,canvas.height);
     ctx.fillStyle='#000'; ctx.fillRect(0,0,canvas.width,canvas.height);
@@ -104,11 +142,10 @@
         ctx.fillText(tn.text, pt.x+10, pt.y);
       }
 
-      // generated spokes + parent links + nodes (red)
+      // generated nodes (RED) — ONLY link to parents (no center→red line)
       for(var g=0; g<p.generated.length; g++){
         var gn=p.generated[g], pg=posOf(p,gn);
-        // center → red
-        ctx.strokeStyle='#800'; ctx.beginPath(); ctx.moveTo(p.x,p.y); ctx.lineTo(pg.x,pg.y); ctx.stroke();
+
         // red → parents
         if(gn.from && gn.from.length){
           ctx.strokeStyle='#c33';
@@ -118,20 +155,22 @@
             ctx.beginPath(); ctx.moveTo(pg.x,pg.y); ctx.lineTo(pp.x,pp.y); ctx.stroke();
           }
         }
-        // node + hover
+
+        // red node + hover ring
         ctx.fillStyle='#ff0040'; ctx.beginPath(); ctx.arc(pg.x,pg.y,6,0,Math.PI*2); ctx.fill();
         if(hover.type==='gen' && hover.person===p && hover.index===g){ ctx.strokeStyle='#c44'; ctx.beginPath(); ctx.arc(pg.x,pg.y,9,0,Math.PI*2); ctx.stroke(); }
         ctx.fillStyle='#ff0040'; ctx.fillText(gn.text, pg.x+10, pg.y);
       }
     }
+
     canvas.style.cursor = hover.type ? 'pointer' : (dragging.type ? 'grabbing' : 'default');
   }
 
-  // inputs
+  // =================== Inputs ============================
   var nameInput=document.getElementById('nameInput');
   var traitInput=document.getElementById('traitInput');
 
-  // create by Enter (centered)
+  // Create person by Enter (centered)
   nameInput.addEventListener('keydown', function(e){
     if(e.key==='Enter'){
       var nm=nameInput.value.trim(); if(!nm) return;
@@ -140,7 +179,7 @@
     }
   });
 
-  // hover + drag
+  // Hover + drag behavior
   canvas.addEventListener('mousemove', function(e){
     var m=mouse(e);
     if(dragging.type){
@@ -150,11 +189,13 @@
       } else {
         var pr=dragging.person, dx=m.x-pr.x, dy=m.y-pr.y;
         var node = dragging.type==='trait' ? pr.traits[dragging.index] : pr.generated[dragging.index];
-        node.angle = Math.atan2(dy,dx); node.dist = Math.sqrt(dx*dx+dy*dy);
+        node.angle = Math.atan2(dy,dx);
+        node.dist  = Math.sqrt(dx*dx+dy*dy);
       }
       redraw(); return;
     }
-    hover = hitTest(m.x,m.y); redraw();
+    hover = hitTest(m.x,m.y);
+    redraw();
   });
 
   canvas.addEventListener('mousedown', function(e){
@@ -180,7 +221,7 @@
 
   window.addEventListener('mouseup', function(){ dragging.type=null; dragging.person=null; dragging.index=-1; });
 
-  // add trait by Enter
+  // Add trait by Enter → auto-combos to every previous trait
   traitInput.addEventListener('keydown', function(e){
     if(e.key==='Enter' && activePerson){
       var t=traitInput.value.trim(); if(!t) return;
@@ -192,5 +233,6 @@
   redraw();
 })();
 </script>
+
 
 
