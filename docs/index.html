@@ -35,16 +35,31 @@
 
   // model
   var people=[], activePerson=null;
-  function Person(name,x,y){ this.name=name; this.x=x; this.y=y; this.traits=[]; this.generated=[]; }
-  Person.prototype.addTrait=function(trait){
-    if(!trait) return;
-    this.traits.push({text:trait, angle:Math.random()*Math.PI*2, dist:100+Math.random()*50});
-    if(this.traits.length>1){
-      var prev=this.traits[this.traits.length-2].text;
-      this.generated.push({text:prev+'+'+trait, angle:Math.random()*Math.PI*2, dist:180});
-    }
-  };
-  Person.prototype.isHit=function(mx,my){ var dx=mx-this.x,dy=my-this.y; return Math.sqrt(dx*dx+dy*dy)<=15; };
+Person.prototype.addTrait = function(trait){
+  if (!trait) return;
+
+  // add the new trait node
+  this.traits.push({
+    text: trait,
+    angle: Math.random() * Math.PI * 2,
+    dist: 100 + Math.random() * 50
+  });
+
+  // create one generated behavior from the last two traits (for now)
+  if (this.traits.length > 1){
+    var aIdx = this.traits.length - 2;   // previous trait index
+    var bIdx = this.traits.length - 1;   // new trait index
+    var prevText = this.traits[aIdx].text;
+
+    this.generated.push({
+      text: prevText + ' + ' + trait,
+      angle: Math.random() * Math.PI * 2,
+      dist: 180,
+      from: [aIdx, bIdx]  // <<< remember which trait indexes birthed this
+    });
+  }
+};
+
 
   // helpers
   function posOf(p, node){ // node = trait or generated {angle,dist}
@@ -82,14 +97,40 @@
         ctx.fillText(node.text, pt.x+10, pt.y);
       }
 
-      // generated behaviors (red)
-      for(var g=0; g<p.generated.length; g++){
-        var gen=p.generated[g], pg=posOf(p,gen);
-        ctx.strokeStyle='#800'; ctx.beginPath(); ctx.moveTo(p.x,p.y); ctx.lineTo(pg.x,pg.y); ctx.stroke();
-        ctx.fillStyle='#ff0040'; ctx.beginPath(); ctx.arc(pg.x,pg.y,6,0,Math.PI*2); ctx.fill();
-        if(hover.type==='gen' && hover.person===p && hover.index===g){ ctx.strokeStyle='#c44'; ctx.beginPath(); ctx.arc(pg.x,pg.y,9,0,Math.PI*2); ctx.stroke(); }
-        ctx.fillStyle='#ff0040'; ctx.fillText(gen.text, pg.x+10, pg.y);
-      }
+// generated behaviors (red)
+for (var g=0; g<p.generated.length; g++){
+  var gen = p.generated[g], pg = posOf(p, gen);
+
+  // link from center to generated (keep the spine)
+  ctx.strokeStyle = '#800';
+  ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(pg.x, pg.y); ctx.stroke();
+
+  // NEW: links from generated → its parent trait orbs
+  if (gen.from && gen.from.length){
+    ctx.strokeStyle = '#c33';
+    for (var k=0; k<gen.from.length; k++){
+      var tIndex = gen.from[k];
+      var parentTrait = p.traits[tIndex];
+      if (!parentTrait) continue;
+      var pt = posOf(p, parentTrait);
+      ctx.beginPath(); ctx.moveTo(pg.x, pg.y); ctx.lineTo(pt.x, pt.y); ctx.stroke();
+    }
+  }
+
+  // node
+  ctx.fillStyle = '#ff0040';
+  ctx.beginPath(); ctx.arc(pg.x, pg.y, 6, 0, Math.PI*2); ctx.fill();
+
+  // hover ring
+  if (hover.type==='gen' && hover.person===p && hover.index===g){
+    ctx.strokeStyle='#c44'; ctx.beginPath(); ctx.arc(pg.x,pg.y,9,0,Math.PI*2); ctx.stroke();
+  }
+
+  // label
+  ctx.fillStyle = '#ff0040';
+  ctx.fillText(gen.text, pg.x+10, pg.y);
+}
+
     }
 
     // cursor
