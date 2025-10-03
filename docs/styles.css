@@ -61,3 +61,4 @@ color: #555;
 .btnrow{ display:flex; gap:6px; margin-top:6px }
 .btn{ border:1px solid #666; padding:4px 8px; background:#111; color:#eee; cursor:pointer }
 .btn:hover{ background:#222 }
+}
