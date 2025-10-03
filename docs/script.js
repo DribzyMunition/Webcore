@@ -1,158 +1,56 @@
+// Webcore interactive canvas — reselect & drag webs
+// v1.4
+
+
 const canvas = document.getElementById('webCanvas');
 const ctx = canvas.getContext('2d');
-canvas.width = window.innerWidth;
-canvas.height = window.innerHeight;
+resizeCanvas();
 
-ctx.font = "14px monospace";
-ctx.fillStyle = "white";
+
+ctx.font = '14px monospace';
+ctx.fillStyle = 'white';
+
 
 let people = [];
 let activePerson = null;
 let draggingPerson = null;
+let dragOffset = { x: 0, y: 0 };
 
-// Person class
+
+// ---- helpers
+function resizeCanvas() {
+// Map CSS pixels to device pixels for crisp hit‑tests
+const dpr = window.devicePixelRatio || 1;
+const rect = canvas.getBoundingClientRect();
+canvas.width = Math.round(rect.width * dpr) || window.innerWidth * dpr;
+canvas.height = Math.round(rect.height * dpr) || window.innerHeight * dpr;
+canvas.style.width = rect.width ? rect.width + 'px' : '100%';
+canvas.style.height = rect.height ? rect.height + 'px' : '100%';
+ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+
+
+function mousePos(e) {
+const rect = canvas.getBoundingClientRect();
+const x = e.clientX - rect.left;
+const y = e.clientY - rect.top;
+return { x, y };
+}
+
+
+// ---- model
 class Person {
-  constructor(name, x, y) {
-    this.name = name;
-    this.x = x;
-    this.y = y;
-    this.traits = [];
-    this.generated = [];
-  }
-
-  addTrait(trait) {
-    if (!trait) return;
-    this.traits.push({
-      text: trait,
-      angle: Math.random() * Math.PI * 2,
-      dist: 100 + Math.random() * 50
-    });
-
-    if (this.traits.length > 1) {
-      this.generated.push({
-        text: `${this.traits[this.traits.length - 2].text}+${trait}`,
-        angle: Math.random() * Math.PI * 2,
-        dist: 180
-      });
-    }
-  }
-
-  draw() {
-    // center node
-    ctx.fillStyle = 'white';
-    ctx.beginPath();
-    ctx.arc(this.x, this.y, 8, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillText(this.name, this.x + 12, this.y + 4);
-
-    // traits
-    this.traits.forEach(t => {
-      const tx = this.x + Math.cos(t.angle) * t.dist;
-      const ty = this.y + Math.sin(t.angle) * t.dist;
-      ctx.strokeStyle = '#444';
-      ctx.beginPath();
-      ctx.moveTo(this.x, this.y);
-      ctx.lineTo(tx, ty);
-      ctx.stroke();
-      ctx.fillStyle = 'white';
-      ctx.beginPath();
-      ctx.arc(tx, ty, 6, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillText(t.text, tx + 10, ty);
-    });
-
-    // generated behaviors
-    this.generated.forEach(g => {
-      const gx = this.x + Math.cos(g.angle) * g.dist;
-      const gy = this.y + Math.sin(g.angle) * g.dist;
-      ctx.strokeStyle = '#800';
-      ctx.beginPath();
-      ctx.moveTo(this.x, this.y);
-      ctx.lineTo(gx, gy);
-      ctx.stroke();
-      ctx.fillStyle = '#ff0040';
-      ctx.beginPath();
-      ctx.arc(gx, gy, 6, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillText(g.text, gx + 10, gy);
-    });
-  }
-
-  isHit(mx, my) {
-    const dx = mx - this.x;
-    const dy = my - this.y;
-    return Math.sqrt(dx * dx + dy * dy) < 15;
-  }
+constructor(name, x, y) {
+this.name = name;
+this.x = x; // center in CSS pixels
+this.y = y;
+this.traits = [];
+this.generated = [];
 }
 
-// redraw all
-function redraw() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.fillStyle = 'black';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  people.forEach(p => p.draw());
-}
 
-// handle mouse down
-canvas.addEventListener('mousedown', e => {
-  const nameInput = document.getElementById('nameInput');
-  const name = nameInput.value.trim();
-
-  // check existing people first
-  for (let p of people) {
-    if (p.isHit(e.clientX, e.clientY)) {
-      activePerson = p;
-      draggingPerson = p;
-      console.log("Selected + dragging:", p.name);
-      redraw();
-      return;
-    }
-  }
-
-  // otherwise add new
-  if (name) {
-    const p = new Person(name, e.clientX, e.clientY);
-    people.push(p);
-    activePerson = p;
-    nameInput.value = '';
-    console.log("Added new person:", name);
-    redraw();
-  }
-});
-
-// handle dragging
-canvas.addEventListener('mousemove', e => {
-  if (draggingPerson) {
-    draggingPerson.x = e.clientX;
-    draggingPerson.y = e.clientY;
-    redraw();
-  }
-});
-
-// stop dragging
-canvas.addEventListener('mouseup', () => {
-  if (draggingPerson) {
-    console.log("Stopped dragging:", draggingPerson.name);
-  }
-  draggingPerson = null;
-});
-
-// add trait with Enter
-document.getElementById('traitInput').addEventListener('keydown', e => {
-  if (e.key === 'Enter' && activePerson) {
-    activePerson.addTrait(e.target.value.trim());
-    console.log("Added trait to", activePerson.name, ":", e.target.value.trim());
-    e.target.value = '';
-    redraw();
-  }
-});
-
-// resize
-window.addEventListener('resize', () => {
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
-  ctx.font = "14px monospace";
-  redraw();
-});
-
+addTrait(trait) {
+if (!trait) return;
+this.traits.push({
+text: trait,
 redraw();
