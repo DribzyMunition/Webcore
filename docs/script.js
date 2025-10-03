@@ -192,4 +192,8 @@ ctx.moveTo(this.x, this.y);
 ctx.lineTo(gx, gy);
 ctx.stroke();
 ctx.fillStyle = '#ff0040';
+// load, suggest, paint
+loadState();
+renderSuggestions();
 redraw();
+
