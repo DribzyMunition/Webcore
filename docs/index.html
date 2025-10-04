@@ -306,21 +306,26 @@ ctx.fillText(p.name, p.x + 12, p.y + 4);
           ctx.fillText(tn.text, pt.x+10, pt.y);
         }
 
-        // generated (red) — only to parent traits
-        for(var g=0; g<p.generated.length; g++){
-          var gn=p.generated[g], pg=posOf(p,gn);
-          if(gn.from && gn.from.length){
-            ctx.strokeStyle='#c33';
-            for(var k=0;k<gn.from.length;k++){
-              var idx=gn.from[k], parent=p.traits[idx]; if(!parent) continue;
-              var pp=posOf(p,parent);
-              ctx.beginPath(); ctx.moveTo(pg.x,pg.y); ctx.lineTo(pp.x,pp.y); ctx.stroke();
-            }
-          }
-          ctx.fillStyle='#ff0040'; ctx.beginPath(); ctx.arc(pg.x,pg.y,6,0,Math.PI*2); ctx.fill();
-          if(hover.type==='gen' && hover.person===p && hover.index===g){ ctx.strokeStyle='#c44'; ctx.beginPath(); ctx.arc(pg.x,pg.y,9,0,Math.PI*2); ctx.stroke(); }
-          ctx.fillStyle='#ff0040'; ctx.fillText(gn.text, pg.x+10, pg.y);
-        }
+       // generated (red) — only to parent traits
+for(var g=0; g<p.generated.length; g++){
+  var gn=p.generated[g], pg=posOf(p,gn);
+
+  if(gn.from && gn.from.length){
+    ctx.strokeStyle='#c33';
+    ctx.lineWidth = gn.w || 1;     // ← thickness by meaning (1–3)
+    for(var k=0;k<gn.from.length;k++){
+      var idx=gn.from[k], parent=p.traits[idx]; if(!parent) continue;
+      var pp=posOf(p,parent);
+      ctx.beginPath(); ctx.moveTo(pg.x,pg.y); ctx.lineTo(pp.x,pp.y); ctx.stroke();
+    }
+    ctx.lineWidth = 1;             // ← reset
+  }
+
+  ctx.fillStyle='#ff0040'; ctx.beginPath(); ctx.arc(pg.x,pg.y,6,0,Math.PI*2); ctx.fill();
+  if(hover.type==='gen' && hover.person===p && hover.index===g){ ctx.strokeStyle='#c44'; ctx.beginPath(); ctx.arc(pg.x,pg.y,9,0,Math.PI*2); ctx.stroke(); }
+  ctx.fillStyle='#ff0040'; ctx.fillText(gn.text, pg.x+10, pg.y);
+}
+
       }
       canvas.style.cursor = hover.type ? 'pointer' : (dragging.type ? 'grabbing' : 'default');
     }
