@@ -73,7 +73,7 @@
     function tooClose(pt, pts, min){ for(var i=0;i<pts.length;i++){ var dx=pt.x-pts[i].x, dy=pt.y-pts[i].y; if(Math.sqrt(dx*dx+dy*dy)<min) return true; } return false; }
     function findOpenSpot(p, baseAngle, dist){ var pts=nodePositions(p), step=Math.PI/18; for(var t=0;t<36;t++){ var a=baseAngle+t*step; var test={x:p.x+Math.cos(a)*dist, y:p.y+Math.sin(a)*dist}; if(!tooClose(test,pts,26)) return a; } return baseAngle; }
 
-    // ---------- Calm add (no auto combos; smart placement) ----------
+    // --------- Calm add (no auto combos; smart placement) ---------
     Person.prototype.addTrait=function(trait){
       if(!trait) return -1;
       var n=this.traits.length, base=goldenAngle(n), ring=(n%8>=4)?1:0, dist=110+ring*50;
