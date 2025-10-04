@@ -63,7 +63,12 @@
     // =================== Model =============================
     var people=[], activePerson=null, lastAddedIdx=null;
 
-    function Person(name,x,y){ this.name=name; this.x=x; this.y=y; this.traits=[]; this.generated=[]; }
+    function Person(name,x,y){
+  this.name=name; this.x=x; this.y=y;
+  this.traits=[]; this.generated=[];
+  this.color = brightOrange(); // 👈 per-person label color
+}
+
     
 // Hit radii (bigger = easier grabbing)
 var CENTER_HIT = 18;
