@@ -137,6 +137,40 @@ function brightOrange(){ return '#ff8a00'; } // default
       var novelty = 1 + Math.random()*0.2;             // tie-breaker
       return spatial * novelty;
     }
+          // Soft categories from text
+function cat(tr){
+  tr = (tr||'').toLowerCase();
+  if (tr.match(/generous|kind|giving/))             return 'warmth';
+  if (tr.match(/ambit|driven|domin|assert/))       return 'dominance';
+  if (tr.match(/excus|blame|avoid/))               return 'avoidance';
+  if (tr.match(/isolat|withdraw|lonely/))          return 'withdrawal';
+  if (tr.match(/attent|perform|show|status/))      return 'attention';
+  if (tr.match(/anx|fear|risk-averse/))            return 'anxiety';
+  if (tr.match(/scarce|rare|last|fomo/))           return 'scarcity';
+  return 'other';
+}
+
+// Pairing rules → label + strength
+var COMBO_RULES = {
+  'attention+dominance': { label:'status display',            w:2 },
+  'avoidance+dominance': { label:'fragile ambition',          w:3 },
+  'attention+withdrawal':{ label:'overcompensation in public',w:2 },
+  'anxiety+scarcity':     { label:'panic scarcity response',   w:3 },
+  'attention+warmth':     { label:'performative generosity',   w:2 },
+  'avoidance+warmth':     { label:'soft exit seeking',         w:2 }
+};
+
+function comboMeaning(aText, bText){
+  var A = cat(aText), B = cat(bText);
+  var key = (A <= B ? A+'+'+B : B+'+'+A);
+  var rule = COMBO_RULES[key];
+  if (rule) return { text: rule.label + ' ('+A+'×'+B+')', w: rule.w };
+  return { text: aText + ' × ' + bText, w: 1 };
+}
+
+
+
+    
     function proposeCombos(p, limit, onlyIdx){
       if(!p || p.traits.length<2) return [];
       var pairs=[], n=p.traits.length, i,j;
@@ -189,36 +223,6 @@ box.appendChild(head);
 
 
 
-      // Soft categories from text
-function cat(tr){
-  tr = (tr||'').toLowerCase();
-  if (tr.match(/generous|kind|giving/))             return 'warmth';
-  if (tr.match(/ambit|driven|domin|assert/))       return 'dominance';
-  if (tr.match(/excus|blame|avoid/))               return 'avoidance';
-  if (tr.match(/isolat|withdraw|lonely/))          return 'withdrawal';
-  if (tr.match(/attent|perform|show|status/))      return 'attention';
-  if (tr.match(/anx|fear|risk-averse/))            return 'anxiety';
-  if (tr.match(/scarce|rare|last|fomo/))           return 'scarcity';
-  return 'other';
-}
-
-// Pairing rules → label + strength
-var COMBO_RULES = {
-  'attention+dominance': { label:'status display',            w:2 },
-  'avoidance+dominance': { label:'fragile ambition',          w:3 },
-  'attention+withdrawal':{ label:'overcompensation in public',w:2 },
-  'anxiety+scarcity':     { label:'panic scarcity response',   w:3 },
-  'attention+warmth':     { label:'performative generosity',   w:2 },
-  'avoidance+warmth':     { label:'soft exit seeking',         w:2 }
-};
-
-function comboMeaning(aText, bText){
-  var A = cat(aText), B = cat(bText);
-  var key = (A <= B ? A+'+'+B : B+'+'+A);
-  var rule = COMBO_RULES[key];
-  if (rule) return { text: rule.label + ' ('+A+'×'+B+')', w: rule.w };
-  return { text: aText + ' × ' + bText, w: 1 };
-}
 
       // Prefer combos that include the newest trait
       var picks = proposeCombos(activePerson, 2, lastAddedIdx);
