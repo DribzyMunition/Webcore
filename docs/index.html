@@ -238,7 +238,9 @@ function comboMeaning(aText, bText){
               // normalize wrap-around
               if (Math.abs(a.angle-b.angle) > Math.PI) { ang += Math.PI; }
               var dist = (a.dist + b.dist)/2 + 20;
-              activePerson.generated.push({ text: label, angle: ang, dist: dist, from:[pair[0], pair[1]] });
+             var m = comboMeaning(a.text, b.text);  // ← maps to a nicer label + weight
+activePerson.generated.push({ text: m.text, angle: ang, dist: dist, from:[pair[0], pair[1]], w: m.w });
+
               saveState(); redraw(); renderSuggestions();
             };
             box.appendChild(card);
@@ -370,7 +372,9 @@ ctx.fillText(p.name, p.x + 12, p.y + 4);
             var ang = angleAvg(A.angle, B.angle);
             if (Math.abs(A.angle-B.angle) > Math.PI) { ang += Math.PI; }
             var dist = (A.dist + B.dist)/2 + 20;
-            activePerson.generated.push({ text:(A.text+' × '+B.text), angle:ang, dist:dist, from:[i,j] });
+            var m2 = comboMeaning(A.text, B.text);
+activePerson.generated.push({ text: m2.text, angle: ang, dist: dist, from:[i, j], w: m2.w });
+
           }
         }
 
