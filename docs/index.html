@@ -304,6 +304,11 @@
       var m=mouse(e), h=hitTest(m.x,m.y);
 
       if(h.type){
+            // QUICK DELETE: Alt/Option + click on a person’s center
+    if (h.type === 'person' && (e.altKey || e.metaKey && navigator.platform.includes('Mac'))) {
+      if (confirm('Delete ' + h.person.name + '?')) { removePerson(h.person); }
+      return;
+    }
         activePerson=h.person;
         var idx=people.indexOf(h.person); if(idx>-1){ var pulled=people.splice(idx,1)[0]; people.push(pulled); }
         if(h.type==='person'){
@@ -332,6 +337,15 @@
     document.addEventListener('mousedown', function(e){
       if (!e.target.closest || !e.target.closest('#webCanvas')) releaseDrag();
     }, true);
+document.addEventListener('keydown', function(e){
+  // Ignore when typing in inputs
+  var tag = (e.target && e.target.tagName) ? e.target.tagName.toLowerCase() : '';
+  if (tag === 'input' || tag === 'textarea') return;
+
+  if ((e.key === 'Delete' || e.key === 'Backspace') && activePerson) {
+    if (confirm('Delete ' + activePerson.name + '?')) { removePerson(activePerson); }
+  }
+});
 
 // remember the most recently added trait index
 // (put this near your other globals if you haven’t yet)
