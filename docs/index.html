@@ -239,7 +239,14 @@ function brightOrange(){ return '#ff8a00'; } // default
         if(p===activePerson || (hover.type==='person' && hover.person===p)){
           ctx.strokeStyle='#666'; ctx.beginPath(); ctx.arc(p.x,p.y,12,0,Math.PI*2); ctx.stroke();
         }
-        ctx.fillText(p.name, p.x+12, p.y+4);
+        // label on top with outline
+ctx.lineWidth = 4;
+ctx.strokeStyle = '#000';
+ctx.strokeText(p.name, p.x + 12, p.y + 4);
+ctx.lineWidth = 1;
+ctx.fillStyle = p.color;            // 👈 use per-person color
+ctx.fillText(p.name, p.x + 12, p.y + 4);
+
 
         // traits
         for(var t=0;t<p.traits.length;t++){
