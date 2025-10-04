@@ -16,7 +16,7 @@
     .controls{position:absolute;left:50%;bottom:20px;transform:translateX(-50%);display:flex;gap:8px;z-index:10}
     .controls input{padding:6px 10px;background:#111;color:#fff;border:1px solid #222;outline:none}
     .foot{text-align:center;padding:10px;color:#777}
-    /* Side panel */
+    /* Side  panel */
     .sidepanel{position:absolute;top:12px;right:12px;width:260px;background:rgba(255,255,255,0.04);border:1px solid #1d1d1d;border-radius:6px;padding:10px;max-height:70vh;overflow:auto;z-index:20;pointer-events:auto}
     .side-title{color:#9aa;font-weight:700;margin:6px 0 8px}
     .card{border:1px solid #2a2a2a;padding:8px;margin:8px 0;cursor:pointer}
@@ -73,7 +73,7 @@
     function tooClose(pt, pts, min){ for(var i=0;i<pts.length;i++){ var dx=pt.x-pts[i].x, dy=pt.y-pts[i].y; if(Math.sqrt(dx*dx+dy*dy)<min) return true; } return false; }
     function findOpenSpot(p, baseAngle, dist){ var pts=nodePositions(p), step=Math.PI/18; for(var t=0;t<36;t++){ var a=baseAngle+t*step; var test={x:p.x+Math.cos(a)*dist, y:p.y+Math.sin(a)*dist}; if(!tooClose(test,pts,26)) return a; } return baseAngle; }
 
-    // --------- Calm add (no auto combos; smart placement) ---------
+    // ---------  (no auto combos; smart placement) ---------
     Person.prototype.addTrait=function(trait){
       if(!trait) return -1;
       var n=this.traits.length, base=goldenAngle(n), ring=(n%8>=4)?1:0, dist=110+ring*50;
