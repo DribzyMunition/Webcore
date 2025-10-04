@@ -64,6 +64,13 @@
     var people=[], activePerson=null, lastAddedIdx=null;
 
     function Person(name,x,y){ this.name=name; this.x=x; this.y=y; this.traits=[]; this.generated=[]; }
+    
+// Hit radii (bigger = easier grabbing)
+var CENTER_HIT = 18;
+var NODE_HIT   = 12;
+
+// Bright color helper (we’ll add a proper color picker later)
+function brightOrange(){ return '#ff8a00'; } // default
 
     // --- helpers
     function posOf(p, node){ return { x: p.x + Math.cos(node.angle)*node.dist, y: p.y + Math.sin(node.angle)*node.dist }; }
