@@ -292,13 +292,7 @@ for(j=p.traits.length-1;j>=0;j--){ pt=posOf(p,p.traits[j]); dx=pt.x-mx; dy=pt.y-
         if(p===activePerson || (hover.type==='person' && hover.person===p)){
           ctx.strokeStyle='#666'; ctx.beginPath(); ctx.arc(p.x,p.y,12,0,Math.PI*2); ctx.stroke();
         }
-        // label on top with outline
-ctx.lineWidth = 4;
-ctx.strokeStyle = '#000';
-ctx.strokeText(p.name, p.x + 12, p.y + 4);
-ctx.lineWidth = 1;
-ctx.fillStyle = p.color;            // 👈 use per-person color
-ctx.fillText(p.name, p.x + 12, p.y + 4);
+
 
 
         // traits
@@ -333,7 +327,14 @@ for(var g=0; g<p.generated.length; g++){
       }
       canvas.style.cursor = hover.type ? 'pointer' : (dragging.type ? 'grabbing' : 'default');
     }
-
+        // label on top with outline
+ctx.lineWidth = 4;
+ctx.strokeStyle = '#000';
+ctx.strokeText(p.name, p.x + 12, p.y + 4);
+ctx.lineWidth = 1;
+ctx.fillStyle = p.color;            // 👈 use per-person color
+ctx.fillText(p.name, p.x + 12, p.y + 4);
+    
     // =================== Delete person =====================
     function removePerson(p){
       var idx = people.indexOf(p);
