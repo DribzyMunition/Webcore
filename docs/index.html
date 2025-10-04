@@ -223,6 +223,8 @@ nameInput.addEventListener('keydown', function(e){
   });
 
 canvas.addEventListener('mousedown', function(e){
+  e.preventDefault(); // stops text-selection while dragging
+
   var m=mouse(e), h=hitTest(m.x,m.y);
 
   if(h.type){
