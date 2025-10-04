@@ -45,11 +45,11 @@
 
     <div class="controls">
       <input id="nameInput" placeholder="Enter name (press Enter or click canvas)" />
-      <input id="traitInput" placeholder="Enter trait (press Enter)" />
+      <input id="traitInput" placeholder="Enter trait (press Enter, Shift+Enter = quick combo)" />
     </div>
   </main>
 
-  <footer class="foot">@ webcore — 1.1</footer>
+  <footer class="foot">@ webcore — 0.11</footer>
 
   <script>
   (function(){
@@ -61,59 +61,26 @@
     window.addEventListener('resize', function(){ resize(); redraw(); });
 
     // =================== Model =============================
-    var people=[], activePerson=null;
+    var people=[], activePerson=null, lastAddedIdx=null;
 
     function Person(name,x,y){ this.name=name; this.x=x; this.y=y; this.traits=[]; this.generated=[]; }
 
     // --- helpers
     function posOf(p, node){ return { x: p.x + Math.cos(node.angle)*node.dist, y: p.y + Math.sin(node.angle)*node.dist }; }
     function angleAvg(a,b){ var x=Math.cos(a)+Math.cos(b), y=Math.sin(a)+Math.sin(b); return Math.atan2(y,x); }
-    function hasGenForPair(p, aIdx, bIdx){
-      for(var i=0;i<p.generated.length;i++){
-        var f=p.generated[i].from; if(!f) continue;
-        if((f[0]===aIdx && f[1]===bIdx) || (f[0]===bIdx && f[1]===aIdx)) return true;
-      }
-      return false;
-    }
+    function goldenAngle(n){ return (n * 2.399963229728653) % (Math.PI*2); } // ~137.5°
+    function nodePositions(p){ var pts=[], i; for(i=0;i<p.traits.length;i++) pts.push(posOf(p,p.traits[i])); for(i=0;i<p.generated.length;i++) pts.push(posOf(p,p.generated[i])); return pts; }
+    function tooClose(pt, pts, min){ for(var i=0;i<pts.length;i++){ var dx=pt.x-pts[i].x, dy=pt.y-pts[i].y; if(Math.sqrt(dx*dx+dy*dy)<min) return true; } return false; }
+    function findOpenSpot(p, baseAngle, dist){ var pts=nodePositions(p), step=Math.PI/18; for(var t=0;t<36;t++){ var a=baseAngle+t*step; var test={x:p.x+Math.cos(a)*dist, y:p.y+Math.sin(a)*dist}; if(!tooClose(test,pts,26)) return a; } return baseAngle; }
 
-    // ---------- Tiny combiner (labels) ----------
-    function cat(tr){
-      tr = (tr||'').toLowerCase();
-      if(tr.indexOf('generous')>-1 || tr.indexOf('kind')>-1 || tr.indexOf('giving')>-1) return 'warmth';
-      if(tr.indexOf('ambit')>-1 || tr.indexOf('driven')>-1 || tr.indexOf('domin')>-1) return 'dominance';
-      if(tr.indexOf('excuse')>-1 || tr.indexOf('blame')>-1 || tr.indexOf('avoid')>-1) return 'avoidance';
-      if(tr.indexOf('isolat')>-1 || tr.indexOf('withdraw')>-1 || tr.indexOf('lonely')>-1) return 'withdrawal';
-      if(tr.indexOf('attent')>-1 || tr.indexOf('perform')>-1 || tr.indexOf('show')>-1) return 'attention';
-      if(tr.indexOf('anx')>-1 || tr.indexOf('risk-averse')>-1 || tr.indexOf('fear')>-1) return 'anxiety';
-      if(tr.indexOf('scarce')>-1 || tr.indexOf('rare')>-1 || tr.indexOf('last')>-1) return 'scarcity';
-      return 'other';
-    }
-    function comboLabel(a, b){
-      var A=cat(a), B=cat(b);
-      if((A==='warmth' && B==='attention')||(A==='attention'&&B==='warmth')) return 'performative generosity';
-      if((A==='dominance' && B==='avoidance')||(A==='avoidance'&&B==='dominance')) return 'fragile ambition';
-      if((A==='withdrawal' && B==='attention')||(A==='attention'&&B==='withdrawal')) return 'overcompensation in public';
-      if((A==='anxiety' && B==='scarcity')||(A==='scarcity'&&B==='anxiety')) return 'panic scarcity response';
-      if((A==='dominance' && B==='attention')||(A==='attention'&&B==='dominance')) return 'status display';
-      if((A==='warmth' && B==='avoidance')||(A==='avoidance'&&B==='warmth')) return 'soft exit seeking';
-      return a + ' × ' + b;
-    }
-
-    // Add a trait, create combo nodes to previous traits (parents only)
+    // ---------- Calm add (no auto combos; smart placement) ----------
     Person.prototype.addTrait=function(trait){
-      if(!trait) return;
-      this.traits.push({ text:trait, angle:Math.random()*Math.PI*2, dist:100+Math.random()*50 });
-      var newIdx=this.traits.length-1;
-      for(var i=0;i<this.traits.length-1;i++){
-        if(hasGenForPair(this, i, newIdx)) continue;
-        var tA=this.traits[i], tB=this.traits[newIdx];
-        var ang = angleAvg(tA.angle, tB.angle);
-        var dst = (tA.dist + tB.dist)/2 + 20;
-        var label = comboLabel(tA.text, tB.text);
-        this.generated.push({ text:label, angle:ang, dist:dst, from:[i,newIdx] });
-      }
+      if(!trait) return -1;
+      var n=this.traits.length, base=goldenAngle(n), ring=(n%8>=4)?1:0, dist=110+ring*50;
+      var ang=findOpenSpot(this, base, dist);
+      this.traits.push({ text:trait, angle:ang, dist:dist });
+      return this.traits.length-1;
     };
-
     Person.prototype.isHit=function(mx,my){ var dx=mx-this.x,dy=my-this.y; return Math.sqrt(dx*dx+dy*dy)<=15; };
 
     // =================== Persistence =======================
@@ -151,44 +118,54 @@
       var tA=p.traits[i], tB=p.traits[j];
       var dx=Math.cos(tA.angle)*tA.dist - Math.cos(tB.angle)*tB.dist;
       var dy=Math.sin(tA.angle)*tA.dist - Math.sin(tB.angle)*tB.dist;
-      var spatial = Math.sqrt(dx*dx+dy*dy);
-      var novelty = 1 + Math.random()*0.2;
+      var spatial = Math.sqrt(dx*dx+dy*dy);            // spacing heuristic
+      var novelty = 1 + Math.random()*0.2;             // tie-breaker
       return spatial * novelty;
     }
-    function proposeCombos(p, limit){
+    function proposeCombos(p, limit, onlyIdx){
       if(!p || p.traits.length<2) return [];
-      var pairs = traitPairs(p).filter(function(pr){ return !alreadyHasGen(p, pr[0], pr[1]); });
+      var pairs=[], n=p.traits.length, i,j;
+      for(i=0;i<n;i++) for(j=i+1;j<n;j++){
+        if(onlyIdx!=null && !(i===onlyIdx || j===onlyIdx)) continue;
+        if(alreadyHasGen(p,i,j)) continue;
+        pairs.push([i,j]);
+      }
       if(!pairs.length) return [];
       pairs.sort(function(a,b){ return scorePair(p,b[0],b[1]) - scorePair(p,a[0],a[1]); });
       return pairs.slice(0, limit||2);
     }
+
     function renderSuggestions(){
       var box = document.getElementById('sugCombos');
       var probe = document.getElementById('sugProbe');
       box.innerHTML=''; probe.innerHTML='';
 
       if(!activePerson){ box.innerHTML='<div class="card">Select or create a person</div>'; return; }
-// Active person header + delete button
-var head = document.createElement('div');
-head.className = 'card';
-head.style.display = 'flex';
-head.style.justifyContent = 'space-between';
-head.style.alignItems = 'center';
-head.innerHTML = '<span><span class="badge">active</span>' + activePerson.name + '</span>';
-var del = document.createElement('button');
-del.className = 'btn btn-danger';
-del.style.borderColor = '#a33';
-del.style.color = '#f88';
-del.textContent = 'Delete person';
-del.onclick = function(){
-  if (confirm('Delete ' + activePerson.name + '?')) { removePerson(activePerson); }
-};
-head.appendChild(del);
-box.appendChild(head);
 
-      var picks = proposeCombos(activePerson, 2);
+      // Active person header + delete button
+      var head = document.createElement('div');
+      head.className = 'card';
+      head.style.display = 'flex';
+      head.style.justifyContent = 'space-between';
+      head.style.alignItems = 'center';
+      head.innerHTML = '<span><span class="badge">active</span>' + activePerson.name + '</span>';
+      var del = document.createElement('button');
+      del.className = 'btn';
+      del.style.borderColor = '#a33';
+      del.style.color = '#f88';
+      del.textContent = 'Delete person';
+      del.onclick = function(){ if(confirm('Delete ' + activePerson.name + '?')) removePerson(activePerson); };
+      head.appendChild(del);
+      box.appendChild(head);
+
+      // Prefer combos that include the newest trait
+      var picks = proposeCombos(activePerson, 2, lastAddedIdx);
+      if(!picks.length) picks = proposeCombos(activePerson, 2, null);
+
       if(picks.length===0){
-        box.innerHTML = '<div class="card">No new combos right now — add more traits.</div>';
+        var none = document.createElement('div');
+        none.className='card'; none.textContent='No new combos right now — add more traits.';
+        box.appendChild(none);
       } else {
         for(var i=0;i<picks.length;i++){
           (function(pair){
@@ -199,6 +176,8 @@ box.appendChild(head);
             card.innerHTML = '<span class="badge">combo</span>' + label;
             card.onclick = function(){
               var ang = angleAvg(a.angle, b.angle);
+              // normalize wrap-around
+              if (Math.abs(a.angle-b.angle) > Math.PI) { ang += Math.PI; }
               var dist = (a.dist + b.dist)/2 + 20;
               activePerson.generated.push({ text: label, angle: ang, dist: dist, from:[pair[0], pair[1]] });
               saveState(); redraw(); renderSuggestions();
@@ -208,11 +187,12 @@ box.appendChild(head);
         }
       }
 
+      // Quick probe buttons
       var row = document.createElement('div');
       row.className='btnrow';
       ['clubbing','gaming','working'].forEach(function(opt){
         var b=document.createElement('button'); b.className='btn'; b.textContent=opt;
-        b.onclick=function(){ if(!activePerson) return; activePerson.addTrait('prefers: '+opt); saveState(); redraw(); renderSuggestions(); };
+        b.onclick=function(){ if(!activePerson) return; lastAddedIdx = activePerson.addTrait('prefers: '+opt); saveState(); redraw(); renderSuggestions(); };
         row.appendChild(b);
       });
       probe.appendChild(row);
@@ -277,6 +257,16 @@ box.appendChild(head);
       canvas.style.cursor = hover.type ? 'pointer' : (dragging.type ? 'grabbing' : 'default');
     }
 
+    // =================== Delete person =====================
+    function removePerson(p){
+      var idx = people.indexOf(p);
+      if (idx > -1) {
+        people.splice(idx, 1);
+        if (activePerson === p) activePerson = people.length ? people[people.length-1] : null;
+        saveState(); redraw(); renderSuggestions();
+      }
+    }
+
     // =================== Drag release (robust) =============
     function releaseDrag(){
       if (dragging && dragging.type){
@@ -294,6 +284,30 @@ box.appendChild(head);
         var nm=nameInput.value.trim(); if(!nm) return;
         var p=new Person(nm, canvas.width/2, canvas.height/2);
         people.push(p); activePerson=p; nameInput.value='';
+        saveState(); redraw(); renderSuggestions();
+      }
+    });
+
+    traitInput.addEventListener('keydown', function(e){
+      if(e.key==='Enter' && activePerson){
+        var t = traitInput.value.trim(); if(!t) return;
+        var idx = activePerson.addTrait(t);
+        lastAddedIdx = idx;
+        traitInput.value = '';
+
+        // Shift+Enter = quick accept the top 1 combo involving this new trait
+        if (e.shiftKey){
+          var picks = proposeCombos(activePerson, 1, idx);
+          if (picks.length){
+            var i=picks[0][0], j=picks[0][1];
+            var A=activePerson.traits[i], B=activePerson.traits[j];
+            var ang = angleAvg(A.angle, B.angle);
+            if (Math.abs(A.angle-B.angle) > Math.PI) { ang += Math.PI; }
+            var dist = (A.dist + B.dist)/2 + 20;
+            activePerson.generated.push({ text:(A.text+' × '+B.text), angle:ang, dist:dist, from:[i,j] });
+          }
+        }
+
         saveState(); redraw(); renderSuggestions();
       }
     });
@@ -321,11 +335,12 @@ box.appendChild(head);
       var m=mouse(e), h=hitTest(m.x,m.y);
 
       if(h.type){
-            // QUICK DELETE: Alt/Option + click on a person’s center
-    if (h.type === 'person' && (e.altKey || e.metaKey && navigator.platform.includes('Mac'))) {
-      if (confirm('Delete ' + h.person.name + '?')) { removePerson(h.person); }
-      return;
-    }
+        // QUICK DELETE: Alt/Option + click center
+        if (h.type==='person' && (e.altKey)){
+          if (confirm('Delete ' + h.person.name + '?')) removePerson(h.person);
+          return;
+        }
+
         activePerson=h.person;
         var idx=people.indexOf(h.person); if(idx>-1){ var pulled=people.splice(idx,1)[0]; people.push(pulled); }
         if(h.type==='person'){
@@ -354,79 +369,24 @@ box.appendChild(head);
     document.addEventListener('mousedown', function(e){
       if (!e.target.closest || !e.target.closest('#webCanvas')) releaseDrag();
     }, true);
-document.addEventListener('keydown', function(e){
-  // Ignore when typing in inputs
-  var tag = (e.target && e.target.tagName) ? e.target.tagName.toLowerCase() : '';
-  if (tag === 'input' || tag === 'textarea') return;
 
-  if ((e.key === 'Delete' || e.key === 'Backspace') && activePerson) {
-    if (confirm('Delete ' + activePerson.name + '?')) { removePerson(activePerson); }
-  }
-});
-
-// remember the most recently added trait index
-// (put this near your other globals if you haven’t yet)
-var lastAddedIdx = null;
-
-traitInput.addEventListener('keydown', function(e){
-  if(e.key === 'Enter' && activePerson){
-    var t = traitInput.value.trim();
-    if(!t) return;
-
-    // Add the trait (no auto-combos here)
-    var idx = activePerson.addTrait(t);
-    lastAddedIdx = idx;                 // <-- focus suggestions on this trait
-    traitInput.value = '';
-
-    // OPTIONAL: Shift+Enter = instantly materialise the top 1 combo for this new trait
-    if (e.shiftKey) {
-      // If your proposeCombos(newLimit, onlyIdx) is implemented (Step 2):
-      var picks;
-      if (typeof proposeCombos === 'function' && proposeCombos.length >= 3) {
-        picks = proposeCombos(activePerson, 1, idx);
-      } else {
-        // Fallback mini-picker (in case you haven't done Step 2 yet)
-        picks = (function(){
-          if (activePerson.traits.length < 2) return [];
-          var best = null, bestScore = -Infinity;
-          for (var i = 0; i < activePerson.traits.length; i++) {
-            if (i === idx) continue;
-            // skip if this pair already exists as a red node
-            var exists = false;
-            for (var g = 0; g < activePerson.generated.length; g++) {
-              var f = activePerson.generated[g].from || [];
-              if ((f[0] === i && f[1] === idx) || (f[0] === idx && f[1] === i)) { exists = true; break; }
-            }
-            if (exists) continue;
-            // simple spatial score: prefer pairs not too close or too far
-            var A = activePerson.traits[i], B = activePerson.traits[idx];
-            var dx = Math.cos(A.angle)*A.dist - Math.cos(B.angle)*B.dist;
-            var dy = Math.sin(A.angle)*A.dist - Math.sin(B.angle)*B.dist;
-            var score = Math.sqrt(dx*dx + dy*dy);
-            if (score > bestScore) { bestScore = score; best = [i, idx]; }
-          }
-          return best ? [best] : [];
-        })();
+    // Keyboard delete: Delete/Backspace (when not typing in inputs)
+    document.addEventListener('keydown', function(e){
+      var tag = (e.target && e.target.tagName) ? e.target.tagName.toLowerCase() : '';
+      if (tag==='input' || tag==='textarea') return;
+      if ((e.key==='Delete' || e.key==='Backspace') && activePerson){
+        if (confirm('Delete ' + activePerson.name + '?')) removePerson(activePerson);
       }
+    });
 
-      if (picks.length) {
-        var i = picks[0][0], j = picks[0][1];
-        var A = activePerson.traits[i], B = activePerson.traits[j];
-        // angleAvg should already exist in your script; if not, use the inline version:
-        var ang = (typeof angleAvg === 'function')
-          ? angleAvg(A.angle, B.angle)
-          : (function(a,b){var x=Math.cos(a)+Math.cos(b),y=Math.sin(a)+Math.sin(b);return Math.atan2(y,x);})(A.angle,B.angle);
-        var dist = (A.dist + B.dist)/2 + 20;
-        activePerson.generated.push({ text: (A.text + ' × ' + B.text), angle: ang, dist: dist, from:[i, j] });
-      }
-    }
+    // load, suggest, paint
+    loadState(); renderSuggestions(); redraw();
 
-    // persist + refresh UI
-    saveState();
-    redraw();
-    renderSuggestions();
-  }
-});
+    // (Optional) basic error catcher so we can see issues on-page if any arise
+    window.addEventListener('error', function(ev){
+      console.log('Webcore error:', ev.message, 'at', ev.filename+':'+ev.lineno+':'+ev.colno);
+    });
+  })();
   </script>
 </body>
 </html>
