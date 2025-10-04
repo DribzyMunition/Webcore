@@ -58,6 +58,17 @@
     return false;
   }
 
+
+  function releaseDrag(){
+  if (dragging && dragging.type){
+    dragging.type = null;
+    dragging.person = null;
+    dragging.index = -1;
+    saveState && saveState();
+    redraw();
+  }
+}
+
   // ---------- Tiny “math” combiner (v0) ----------
   // 1) categorize traits from text
   function cat(tr){
@@ -243,7 +254,18 @@ canvas.addEventListener('mousedown', function(e){
 });
 
 
-window.addEventListener('mouseup', function(){
+window.addEventListener('mouseup', releaseDrag);
+
+  canvas.addEventListener('mouseup', releaseDrag);
+document.addEventListener('mouseup', releaseDrag, true);
+canvas.addEventListener('mouseleave', releaseDrag);
+window.addEventListener('blur', releaseDrag);
+
+// If you click anywhere outside the canvas, also drop:
+document.addEventListener('mousedown', function(e){
+  if (!e.target.closest || !e.target.closest('#webCanvas')) releaseDrag();
+}, true);
+
   // if we moved anything, persist positions
   saveState();             // 🔐 store new coordinates
   dragging.type=null; dragging.person=null; dragging.index=-1;
