@@ -1,4 +1,4 @@
-// Webcore interactive canvas — reselect & drag webs (ES5 safe)
+// Webcore interactive  — reselect & drag webs (ES5 safe)
 // v1.5
 
 
