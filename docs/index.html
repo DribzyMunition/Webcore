@@ -93,7 +93,11 @@ function brightOrange(){ return '#ff8a00'; } // default
       this.traits.push({ text:trait, angle:ang, dist:dist });
       return this.traits.length-1;
     };
-    Person.prototype.isHit=function(mx,my){ var dx=mx-this.x,dy=my-this.y; return Math.sqrt(dx*dx+dy*dy)<=15; };
+    Person.prototype.isHit = function(mx,my){
+  var dx = mx - this.x, dy = my - this.y;
+  return Math.sqrt(dx*dx + dy*dy) <= CENTER_HIT; // was 15
+};
+
 
     // =================== Persistence =======================
     function saveState(){
