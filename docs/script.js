@@ -19,6 +19,7 @@ var activePerson = null;
 var draggingPerson = null;
 var dragOffsetX = 0;
 var dragOffsetY = 0;
+var lastAddedIdx = null;
 
 
 function Person(name, x, y){
@@ -125,13 +126,20 @@ function scorePair(p,i,j){
   return spatial * novelty;
 }
 
-function proposeCombos(p, limit){
+function proposeCombos(p, limit, onlyIdx){
   if(!p || p.traits.length<2) return [];
-  var pairs = traitPairs(p).filter(function(pr){ return !alreadyHasGen(p, pr[0], pr[1]); });
+  var pairs=[], n=p.traits.length, i,j;
+  for(i=0;i<n;i++) for(j=i+1;j<n;j++){
+    if(onlyIdx!=null && !(i===onlyIdx || j===onlyIdx)) continue;
+    // skip if already materialised
+    if(alreadyHasGen(p,i,j)) continue;
+    pairs.push([i,j]);
+  }
   if(!pairs.length) return [];
   pairs.sort(function(a,b){ return scorePair(p,b[0],b[1]) - scorePair(p,a[0],a[1]); });
   return pairs.slice(0, limit||2);
 }
+
 
 function renderSuggestions(){
   var box = document.getElementById('sugCombos');
@@ -140,29 +148,34 @@ function renderSuggestions(){
 
   if(!activePerson){ box.innerHTML='<div class="card">Select or create a person</div>'; return; }
 
-  // combo suggestions (top 2)
-  var picks = proposeCombos(activePerson, 2);
+  // try to propose with the most recently added trait; fallback to general
+  var picks = proposeCombos(activePerson, 2, lastAddedIdx);
+  if(!picks.length) picks = proposeCombos(activePerson, 2, null);
+
   if(picks.length===0){
     box.innerHTML = '<div class="card">No new combos right now — add more traits.</div>';
   } else {
-    picks.forEach(function(pair){
-      var a = activePerson.traits[pair[0]], b = activePerson.traits[pair[1]];
-      var label = (a.text + ' × ' + b.text);
-      var card = document.createElement('div');
-      card.className='card';
-      card.innerHTML = '<div class="badge">combo</div> ' + label;
-      card.onclick = function(){
-        // create the combo node positioned near the midpoint
-        var ang = (a.angle + b.angle)/2;
-        // normalize wrap-around:
-        if (Math.abs(a.angle-b.angle) > Math.PI) { ang += Math.PI; }
-        var dist = (a.dist + b.dist)/2 + 20;
-        activePerson.generated.push({ text: label, angle: ang, dist: dist, from:[pair[0], pair[1]] });
-        saveState(); redraw(); renderSuggestions();
-      };
-      box.appendChild(card);
-    });
+    for(var i=0;i<picks.length;i++){
+      (function(pair){
+        var a = activePerson.traits[pair[0]], b = activePerson.traits[pair[1]];
+        var label = (a.text + ' × ' + b.text);
+        var card = document.createElement('div');
+        card.className='card';
+        card.innerHTML = '<span class="badge">combo</span>' + label;
+        card.onclick = function(){
+          var ang = angleAvg(a.angle, b.angle);
+          var dist = (a.dist + b.dist)/2 + 20;
+          activePerson.generated.push({ text: label, angle: ang, dist: dist, from:[pair[0], pair[1]] });
+          saveState(); redraw(); renderSuggestions();
+        };
+        box.appendChild(card);
+      })(picks[i]);
+    }
   }
+
+  // ... (keep your quick probe block unchanged)
+}
+
 
   // quick probe — 3 choices → adds as tiny pref traits (you can rename these)
   var row = document.createElement('div');
