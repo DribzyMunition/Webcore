@@ -30,22 +30,39 @@ this.generated = [];
 }
 
 
-Person.prototype.addTrait = function(trait){
-if (!trait) return;
-this.traits.push({
-text: trait,
-angle: Math.random() * Math.PI * 2,
-dist: 100 + Math.random() * 50
-});
-if (this.traits.length > 1) {
-var prev = this.traits[this.traits.length - 2].text;
-this.generated.push({
-text: prev + '+' + trait,
-angle: Math.random() * Math.PI * 2,
-dist: 180
-});
+// helpers used below
+function goldenAngle(n){ return (n * 2.399963229728653) % (Math.PI*2); } // ~137.5°
+function posOf(p, node){ return { x: p.x + Math.cos(node.angle)*node.dist, y: p.y + Math.sin(node.angle)*node.dist }; }
+
+function nodePositions(p){
+  var pts=[], i;
+  for(i=0;i<p.traits.length;i++){ pts.push(posOf(p, p.traits[i])); }
+  for(i=0;i<p.generated.length;i++){ pts.push(posOf(p, p.generated[i])); }
+  return pts;
 }
+function tooClose(pt, pts, min){ for(var i=0;i<pts.length;i++){ var dx=pt.x-pts[i].x, dy=pt.y-pts[i].y; if(Math.sqrt(dx*dx+dy*dy) < min) return true; } return false; }
+function findOpenSpot(p, baseAngle, dist){
+  var pts=nodePositions(p), step=Math.PI/18; // 10° steps
+  for(var t=0;t<36;t++){ // try up to full circle
+    var a = baseAngle + t*step;
+    var test = { x: p.x + Math.cos(a)*dist, y: p.y + Math.sin(a)*dist };
+    if(!tooClose(test, pts, 26)) return a;
+  }
+  return baseAngle; // fallback
+}
+
+// REPLACE the whole addTrait with this:
+Person.prototype.addTrait = function(trait){
+  if(!trait) return -1;
+  var n = this.traits.length;
+  var baseAngle = goldenAngle(n);
+  var ring = (n % 8 >= 4) ? 1 : 0;  // spread across two rings
+  var dist = 110 + ring*50;
+  var angle = findOpenSpot(this, baseAngle, dist);
+  this.traits.push({ text: trait, angle: angle, dist: dist });
+  return this.traits.length - 1; // return index of new trait
 };
+
 
 
 Person.prototype.draw = function(){
