@@ -51,6 +51,15 @@ function findOpenSpot(p, baseAngle, dist){
   }
   return baseAngle; // fallback
 }
+function removePerson(p){
+  var idx = people.indexOf(p);
+  if (idx > -1) {
+    people.splice(idx, 1);
+    if (activePerson === p) activePerson = people.length ? people[people.length-1] : null;
+    saveState(); redraw(); renderSuggestions();
+  }
+}
+
 
 // REPLACE the whole addTrait with this:
 Person.prototype.addTrait = function(trait){
