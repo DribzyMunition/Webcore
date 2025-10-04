@@ -183,6 +183,22 @@ function brightOrange(){ return '#ff8a00'; } // default
       del.textContent = 'Delete person';
       del.onclick = function(){ if(confirm('Delete ' + activePerson.name + '?')) removePerson(activePerson); };
       head.appendChild(del);
+      // Color cycle button (simple until we add a picker)
+var col = document.createElement('button');
+col.className = 'btn';
+col.textContent = 'Change color';
+col.onclick = function(){
+  var hues = ['#ff8a00','#ff3860','#8a2be2','#00d1b2','#ffd166'];
+  if (!activePerson.color) activePerson.color = '#ff8a00';
+  var cur = hues.indexOf(activePerson.color);
+  activePerson.color = hues[(cur+1+hues.length)%hues.length];
+  saveState(); redraw(); renderSuggestions();
+};
+head.appendChild(col);
+
+// (this line is already there after the delete button)
+box.appendChild(head);
+
       box.appendChild(head);
 
 
