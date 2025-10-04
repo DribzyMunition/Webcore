@@ -168,6 +168,23 @@
       box.innerHTML=''; probe.innerHTML='';
 
       if(!activePerson){ box.innerHTML='<div class="card">Select or create a person</div>'; return; }
+// Active person header + delete button
+var head = document.createElement('div');
+head.className = 'card';
+head.style.display = 'flex';
+head.style.justifyContent = 'space-between';
+head.style.alignItems = 'center';
+head.innerHTML = '<span><span class="badge">active</span>' + activePerson.name + '</span>';
+var del = document.createElement('button');
+del.className = 'btn';
+del.style.borderColor = '#a33';
+del.style.color = '#f88';
+del.textContent = 'Delete person';
+del.onclick = function(){
+  if (confirm('Delete ' + activePerson.name + '?')) { removePerson(activePerson); }
+};
+head.appendChild(del);
+box.appendChild(head);
 
       var picks = proposeCombos(activePerson, 2);
       if(picks.length===0){
