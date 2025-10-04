@@ -190,7 +190,7 @@
       // Quick probe buttons
       var row = document.createElement('div');
       row.className='btnrow';
-      ['clubbing','gaming','working'].forEach(function(opt){
+      ['xxx','gaming','working'].forEach(function(opt){
         var b=document.createElement('button'); b.className='btn'; b.textContent=opt;
         b.onclick=function(){ if(!activePerson) return; lastAddedIdx = activePerson.addTrait('prefers: '+opt); saveState(); redraw(); renderSuggestions(); };
         row.appendChild(b);
