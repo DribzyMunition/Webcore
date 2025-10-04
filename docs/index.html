@@ -1,295 +1,349 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>webcore ▒ psychological web</title>
-<link rel="stylesheet" href="styles.css" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>webcore ▒ psychological web</title>
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    :root { --bg:#000; --fg:#fff; }
+    html,body{height:100%;margin:0}
+    body{background:var(--bg);color:var(--fg);font:14px/1.5 ui-monospace,monospace;display:flex;flex-direction:column}
+    .topbar{padding:12px 16px;font-weight:700}
+    .blink{animation:blink 1s step-start infinite}@keyframes blink{50%{opacity:0}}
+    main{flex:1;position:relative}
+    #webCanvas{position:relative; z-index:0; width:100%;height:100%;display:block;background:#000}
+    .controls{position:absolute;left:50%;bottom:20px;transform:translateX(-50%);display:flex;gap:8px;z-index:10}
+    .controls input{padding:6px 10px;background:#111;color:#fff;border:1px solid #222;outline:none}
+    .foot{text-align:center;padding:10px;color:#777}
+    /* Side panel */
+    .sidepanel{position:absolute;top:12px;right:12px;width:260px;background:rgba(255,255,255,0.04);border:1px solid #1d1d1d;border-radius:6px;padding:10px;max-height:70vh;overflow:auto;z-index:20;pointer-events:auto}
+    .side-title{color:#9aa;font-weight:700;margin:6px 0 8px}
+    .card{border:1px solid #2a2a2a;padding:8px;margin:8px 0;cursor:pointer}
+    .card:hover{background:rgba(255,255,255,0.05)}
+    .badge{display:inline-block;border:1px solid #444;padding:2px 6px;font-size:12px;margin-right:6px}
+    .btnrow{display:flex;gap:6px;margin-top:6px}
+    .btn{border:1px solid #666;padding:4px 8px;background:#111;color:#eee;cursor:pointer}
+    .btn:hover{background:#222}
+  </style>
 </head>
 <body>
-<header class="topbar">
-<div class="mark">webcore <span class="blink">_</span></div>
-</header>
+  <header class="topbar">
+    <div class="mark">webcore <span class="blink">_</span></div>
+  </header>
 
+  <main>
+    <canvas id="webCanvas"></canvas>
 
-<main>
-<canvas id="webCanvas"></canvas>
-  <!-- Suggestions panel -->
-<aside id="sidepanel" class="sidepanel">
-  <div class="side-title">// suggestions</div>
-  <div id="sugCombos"></div>
-  <div class="side-title">// quick probe</div>
-  <div id="sugProbe"></div>
-</aside>
+    <!-- Suggestions panel -->
+    <aside id="sidepanel" class="sidepanel">
+      <div class="side-title">// suggestions</div>
+      <div id="sugCombos"></div>
+      <div class="side-title">// quick probe</div>
+      <div id="sugProbe"></div>
+    </aside>
 
-<div class="controls">
-<input id="nameInput" placeholder="Enter name (click canvas to place)" />
-<input id="traitInput" placeholder="Enter trait (hit enter to add)" />
-</div>
-</main>
+    <div class="controls">
+      <input id="nameInput" placeholder="Enter name (press Enter or click canvas)" />
+      <input id="traitInput" placeholder="Enter trait (press Enter)" />
+    </div>
+  </main>
 
+  <footer class="foot">@ webcore — 0.10</footer>
 
-<footer class="foot">@ webcore — 1.0</footer>
+  <script>
+  (function(){
+    // =================== Canvas & sizing ===================
+    var canvas = document.getElementById('webCanvas');
+    var ctx = canvas.getContext('2d');
+    function resize(){ canvas.width=window.innerWidth; canvas.height=window.innerHeight; ctx.font='14px monospace'; }
+    resize();
+    window.addEventListener('resize', function(){ resize(); redraw(); });
 
+    // =================== Model =============================
+    var people=[], activePerson=null;
 
-<script>
-(function(){
-  // =================== Canvas & sizing ===================
-  var canvas = document.getElementById('webCanvas');
-  var ctx = canvas.getContext('2d');
-  function resize(){ canvas.width=window.innerWidth; canvas.height=window.innerHeight; ctx.font='14px monospace'; }
-  resize();
-  window.addEventListener('resize', function(){ resize(); redraw(); });
+    function Person(name,x,y){ this.name=name; this.x=x; this.y=y; this.traits=[]; this.generated=[]; }
 
-
-  // =================== Model =============================
-  var people=[], activePerson=null;
-
-  function Person(name,x,y){ this.name=name; this.x=x; this.y=y; this.traits=[]; this.generated=[]; }
-
-  // --- helpers
-  function posOf(p, node){ return { x: p.x + Math.cos(node.angle)*node.dist, y: p.y + Math.sin(node.angle)*node.dist }; }
-  function angleAvg(a,b){ var x=Math.cos(a)+Math.cos(b), y=Math.sin(a)+Math.sin(b); return Math.atan2(y,x); }
-  function hasGenForPair(p, aIdx, bIdx){
-    for(var i=0;i<p.generated.length;i++){
-      var f=p.generated[i].from; if(!f) continue;
-      if((f[0]===aIdx && f[1]===bIdx) || (f[0]===bIdx && f[1]===aIdx)) return true;
+    // --- helpers
+    function posOf(p, node){ return { x: p.x + Math.cos(node.angle)*node.dist, y: p.y + Math.sin(node.angle)*node.dist }; }
+    function angleAvg(a,b){ var x=Math.cos(a)+Math.cos(b), y=Math.sin(a)+Math.sin(b); return Math.atan2(y,x); }
+    function hasGenForPair(p, aIdx, bIdx){
+      for(var i=0;i<p.generated.length;i++){
+        var f=p.generated[i].from; if(!f) continue;
+        if((f[0]===aIdx && f[1]===bIdx) || (f[0]===bIdx && f[1]===aIdx)) return true;
+      }
+      return false;
     }
-    return false;
-  }
 
-
-  function releaseDrag(){
-  if (dragging && dragging.type){
-    dragging.type = null;
-    dragging.person = null;
-    dragging.index = -1;
-    saveState && saveState();
-    redraw();
-  }
-}
-
-  // ---------- Tiny “math” combiner (v0) ----------
-  // 1) categorize traits from text
-  function cat(tr){
-    tr = (tr||'').toLowerCase();
-    if(tr.indexOf('generous')>-1 || tr.indexOf('kind')>-1 || tr.indexOf('giving')>-1) return 'warmth';
-    if(tr.indexOf('ambit')>-1 || tr.indexOf('driven')>-1 || tr.indexOf('domin')>-1) return 'dominance';
-    if(tr.indexOf('excuse')>-1 || tr.indexOf('blame')>-1 || tr.indexOf('avoid')>-1) return 'avoidance';
-    if(tr.indexOf('isolat')>-1 || tr.indexOf('withdraw')>-1 || tr.indexOf('lonely')>-1) return 'withdrawal';
-    if(tr.indexOf('attent')>-1 || tr.indexOf('perform')>-1 || tr.indexOf('show')>-1) return 'attention';
-    if(tr.indexOf('anx')>-1 || tr.indexOf('risk-averse')>-1 || tr.indexOf('fear')>-1) return 'anxiety';
-    if(tr.indexOf('scarce')>-1 || tr.indexOf('rare')>-1 || tr.indexOf('last')>-1) return 'scarcity';
-    return 'other';
-  }
-  // 2) label generator for a pair of traits
-  function comboLabel(a, b){
-    var A=cat(a), B=cat(b); var pair=A+'+'+B;
-    if((A==='warmth' && B==='attention')||(A==='attention'&&B==='warmth')) return 'performative generosity';
-    if((A==='dominance' && B==='avoidance')||(A==='avoidance'&&B==='dominance')) return 'fragile ambition';
-    if((A==='withdrawal' && B==='attention')||(A==='attention'&&B==='withdrawal')) return 'overcompensation in public';
-    if((A==='anxiety' && B==='scarcity')||(A==='scarcity'&&B==='anxiety')) return 'panic scarcity response';
-    if((A==='dominance' && B==='attention')||(A==='attention'&&B==='dominance')) return 'status display';
-    if((A==='warmth' && B==='avoidance')||(A==='avoidance'&&B==='warmth')) return 'soft exit seeking';
-    // fallback:
-    return a + ' × ' + b;
-  }
-
-  // Add a trait, and create combo nodes linking to the new trait + all previous ones
-  Person.prototype.addTrait=function(trait){
-    if(!trait) return;
-    this.traits.push({ text:trait, angle:Math.random()*Math.PI*2, dist:100+Math.random()*50 });
-    var newIdx=this.traits.length-1;
-    for(var i=0;i<this.traits.length-1;i++){
-      if(hasGenForPair(this, i, newIdx)) continue;
-      var tA=this.traits[i], tB=this.traits[newIdx];
-      var ang = angleAvg(tA.angle, tB.angle);
-      var dst = (tA.dist + tB.dist)/2 + 20; // sit just outside their midpoint
-      var label = comboLabel(tA.text, tB.text);
-      this.generated.push({ text:label, angle:ang, dist:dst, from:[i,newIdx] });
+    // ---------- Tiny combiner (labels) ----------
+    function cat(tr){
+      tr = (tr||'').toLowerCase();
+      if(tr.indexOf('generous')>-1 || tr.indexOf('kind')>-1 || tr.indexOf('giving')>-1) return 'warmth';
+      if(tr.indexOf('ambit')>-1 || tr.indexOf('driven')>-1 || tr.indexOf('domin')>-1) return 'dominance';
+      if(tr.indexOf('excuse')>-1 || tr.indexOf('blame')>-1 || tr.indexOf('avoid')>-1) return 'avoidance';
+      if(tr.indexOf('isolat')>-1 || tr.indexOf('withdraw')>-1 || tr.indexOf('lonely')>-1) return 'withdrawal';
+      if(tr.indexOf('attent')>-1 || tr.indexOf('perform')>-1 || tr.indexOf('show')>-1) return 'attention';
+      if(tr.indexOf('anx')>-1 || tr.indexOf('risk-averse')>-1 || tr.indexOf('fear')>-1) return 'anxiety';
+      if(tr.indexOf('scarce')>-1 || tr.indexOf('rare')>-1 || tr.indexOf('last')>-1) return 'scarcity';
+      return 'other';
     }
-  };
-
-  Person.prototype.isHit=function(mx,my){ var dx=mx-this.x,dy=my-this.y; return Math.sqrt(dx*dx+dy*dy)<=15; };
-
-  // =================== Interaction state =================
-  var hover={type:null, person:null, index:-1}; // 'person'|'trait'|'gen'|null
-  var dragging={type:null, person:null, index:-1, offx:0, offy:0};
-
-  function mouse(e){ var r=canvas.getBoundingClientRect(); return {x:e.clientX-r.left, y:e.clientY-r.top}; }
-
-  function hitTest(mx,my){
-    for(var i=people.length-1;i>=0;i--){
-      var p=people[i], j, pt, dx, dy;
-      // generated (topmost small orbs first)
-      for(j=p.generated.length-1;j>=0;j--){
-        pt=posOf(p,p.generated[j]); dx=pt.x-mx; dy=pt.y-my;
-        if(Math.sqrt(dx*dx+dy*dy)<=9) return {type:'gen', person:p, index:j};
-      }
-      // traits
-      for(j=p.traits.length-1;j>=0;j--){
-        pt=posOf(p,p.traits[j]); dx=pt.x-mx; dy=pt.y-my;
-        if(Math.sqrt(dx*dx+dy*dy)<=9) return {type:'trait', person:p, index:j};
-      }
-      // person center
-      if(p.isHit(mx,my)) return {type:'person', person:p, index:-1};
+    function comboLabel(a, b){
+      var A=cat(a), B=cat(b);
+      if((A==='warmth' && B==='attention')||(A==='attention'&&B==='warmth')) return 'performative generosity';
+      if((A==='dominance' && B==='avoidance')||(A==='avoidance'&&B==='dominance')) return 'fragile ambition';
+      if((A==='withdrawal' && B==='attention')||(A==='attention'&&B==='withdrawal')) return 'overcompensation in public';
+      if((A==='anxiety' && B==='scarcity')||(A==='scarcity'&&B==='anxiety')) return 'panic scarcity response';
+      if((A==='dominance' && B==='attention')||(A==='attention'&&B==='dominance')) return 'status display';
+      if((A==='warmth' && B==='avoidance')||(A==='avoidance'&&B==='warmth')) return 'soft exit seeking';
+      return a + ' × ' + b;
     }
-    return {type:null, person:null, index:-1};
-  }
 
-  // =================== Draw ==============================
-  function redraw(){
-    ctx.clearRect(0,0,canvas.width,canvas.height);
-    ctx.fillStyle='#000'; ctx.fillRect(0,0,canvas.width,canvas.height);
-
-    for(var i=0;i<people.length;i++){
-      var p=people[i];
-
-      // center node
-      ctx.fillStyle='#fff';
-      ctx.beginPath(); ctx.arc(p.x,p.y,8,0,Math.PI*2); ctx.fill();
-      if(p===activePerson || (hover.type==='person' && hover.person===p)){
-        ctx.strokeStyle='#666'; ctx.beginPath(); ctx.arc(p.x,p.y,12,0,Math.PI*2); ctx.stroke();
+    // Add a trait, create combo nodes to previous traits (parents only)
+    Person.prototype.addTrait=function(trait){
+      if(!trait) return;
+      this.traits.push({ text:trait, angle:Math.random()*Math.PI*2, dist:100+Math.random()*50 });
+      var newIdx=this.traits.length-1;
+      for(var i=0;i<this.traits.length-1;i++){
+        if(hasGenForPair(this, i, newIdx)) continue;
+        var tA=this.traits[i], tB=this.traits[newIdx];
+        var ang = angleAvg(tA.angle, tB.angle);
+        var dst = (tA.dist + tB.dist)/2 + 20;
+        var label = comboLabel(tA.text, tB.text);
+        this.generated.push({ text:label, angle:ang, dist:dst, from:[i,newIdx] });
       }
-      ctx.fillText(p.name, p.x+12, p.y+4);
+    };
 
-      // trait spokes + nodes
-      for(var t=0;t<p.traits.length;t++){
-        var tn=p.traits[t], pt=posOf(p,tn);
-        ctx.strokeStyle='#444'; ctx.beginPath(); ctx.moveTo(p.x,p.y); ctx.lineTo(pt.x,pt.y); ctx.stroke();
-        ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(pt.x,pt.y,6,0,Math.PI*2); ctx.fill();
-        if(hover.type==='trait' && hover.person===p && hover.index===t){ ctx.strokeStyle='#888'; ctx.beginPath(); ctx.arc(pt.x,pt.y,9,0,Math.PI*2); ctx.stroke(); }
-        ctx.fillText(tn.text, pt.x+10, pt.y);
+    Person.prototype.isHit=function(mx,my){ var dx=mx-this.x,dy=my-this.y; return Math.sqrt(dx*dx+dy*dy)<=15; };
+
+    // =================== Persistence =======================
+    function saveState(){
+      var data = people.map(function(p){
+        return {
+          name:p.name, x:p.x, y:p.y,
+          traits:p.traits.map(function(t){ return {text:t.text, angle:t.angle, dist:t.dist}; }),
+          generated:p.generated.map(function(g){ return {text:g.text, angle:g.angle, dist:g.dist, from:g.from}; })
+        };
+      });
+      try{ localStorage.setItem('webcore.v1', JSON.stringify(data)); }catch(e){}
+    }
+    function loadState(){
+      var raw = localStorage.getItem('webcore.v1'); if(!raw) return;
+      try{
+        var arr = JSON.parse(raw);
+        people = arr.map(function(p){
+          var P = new Person(p.name, p.x, p.y);
+          P.traits = (p.traits||[]).map(function(t){ return {text:t.text, angle:t.angle, dist:t.dist}; });
+          P.generated = (p.generated||[]).map(function(g){ return {text:g.text, angle:g.angle, dist:g.dist, from:g.from}; });
+          return P;
+        });
+      }catch(e){}
+    }
+
+    // =================== Suggestions =======================
+    function traitPairs(p){ var out=[], n=p.traits.length; for(var i=0;i<n;i++) for(var j=i+1;j<n;j++) out.push([i,j]); return out; }
+    function alreadyHasGen(p,i,j){
+      for(var k=0;k<p.generated.length;k++){ var f=p.generated[k].from||[]; if(f.length<2) continue;
+        if((f[0]===i && f[1]===j) || (f[0]===j && f[1]===i)) return true; }
+      return false;
+    }
+    function scorePair(p,i,j){
+      var tA=p.traits[i], tB=p.traits[j];
+      var dx=Math.cos(tA.angle)*tA.dist - Math.cos(tB.angle)*tB.dist;
+      var dy=Math.sin(tA.angle)*tA.dist - Math.sin(tB.angle)*tB.dist;
+      var spatial = Math.sqrt(dx*dx+dy*dy);
+      var novelty = 1 + Math.random()*0.2;
+      return spatial * novelty;
+    }
+    function proposeCombos(p, limit){
+      if(!p || p.traits.length<2) return [];
+      var pairs = traitPairs(p).filter(function(pr){ return !alreadyHasGen(p, pr[0], pr[1]); });
+      if(!pairs.length) return [];
+      pairs.sort(function(a,b){ return scorePair(p,b[0],b[1]) - scorePair(p,a[0],a[1]); });
+      return pairs.slice(0, limit||2);
+    }
+    function renderSuggestions(){
+      var box = document.getElementById('sugCombos');
+      var probe = document.getElementById('sugProbe');
+      box.innerHTML=''; probe.innerHTML='';
+
+      if(!activePerson){ box.innerHTML='<div class="card">Select or create a person</div>'; return; }
+
+      var picks = proposeCombos(activePerson, 2);
+      if(picks.length===0){
+        box.innerHTML = '<div class="card">No new combos right now — add more traits.</div>';
+      } else {
+        for(var i=0;i<picks.length;i++){
+          (function(pair){
+            var a = activePerson.traits[pair[0]], b = activePerson.traits[pair[1]];
+            var label = (a.text + ' × ' + b.text);
+            var card = document.createElement('div');
+            card.className='card';
+            card.innerHTML = '<span class="badge">combo</span>' + label;
+            card.onclick = function(){
+              var ang = angleAvg(a.angle, b.angle);
+              var dist = (a.dist + b.dist)/2 + 20;
+              activePerson.generated.push({ text: label, angle: ang, dist: dist, from:[pair[0], pair[1]] });
+              saveState(); redraw(); renderSuggestions();
+            };
+            box.appendChild(card);
+          })(picks[i]);
+        }
       }
 
-      // generated nodes (RED) — ONLY link to parents (no center→red line)
-      for(var g=0; g<p.generated.length; g++){
-        var gn=p.generated[g], pg=posOf(p,gn);
+      var row = document.createElement('div');
+      row.className='btnrow';
+      ['clubbing','gaming','working'].forEach(function(opt){
+        var b=document.createElement('button'); b.className='btn'; b.textContent=opt;
+        b.onclick=function(){ if(!activePerson) return; activePerson.addTrait('prefers: '+opt); saveState(); redraw(); renderSuggestions(); };
+        row.appendChild(b);
+      });
+      probe.appendChild(row);
+    }
 
-        // red → parents
-        if(gn.from && gn.from.length){
-          ctx.strokeStyle='#c33';
-          for(var k=0;k<gn.from.length;k++){
-            var idx=gn.from[k], parent=p.traits[idx]; if(!parent) continue;
-            var pp=posOf(p,parent);
-            ctx.beginPath(); ctx.moveTo(pg.x,pg.y); ctx.lineTo(pp.x,pp.y); ctx.stroke();
-          }
+    // =================== Interaction state =================
+    var hover={type:null, person:null, index:-1}; // 'person'|'trait'|'gen'|null
+    var dragging={type:null, person:null, index:-1, offx:0, offy:0};
+
+    function mouse(e){ var r=canvas.getBoundingClientRect(); return {x:e.clientX-r.left, y:e.clientY-r.top}; }
+    function hitTest(mx,my){
+      for(var i=people.length-1;i>=0;i--){
+        var p=people[i], j, pt, dx, dy;
+        for(j=p.generated.length-1;j>=0;j--){ pt=posOf(p,p.generated[j]); dx=pt.x-mx; dy=pt.y-my; if(Math.sqrt(dx*dx+dy*dy)<=9) return {type:'gen', person:p, index:j}; }
+        for(j=p.traits.length-1;j>=0;j--){ pt=posOf(p,p.traits[j]); dx=pt.x-mx; dy=pt.y-my; if(Math.sqrt(dx*dx+dy*dy)<=9) return {type:'trait', person:p, index:j}; }
+        if(p.isHit(mx,my)) return {type:'person', person:p, index:-1};
+      }
+      return {type:null, person:null, index:-1};
+    }
+
+    // =================== Draw ==============================
+    function redraw(){
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      ctx.fillStyle='#000'; ctx.fillRect(0,0,canvas.width,canvas.height);
+
+      for(var i=0;i<people.length;i++){
+        var p=people[i];
+
+        // center node
+        ctx.fillStyle='#fff';
+        ctx.beginPath(); ctx.arc(p.x,p.y,8,0,Math.PI*2); ctx.fill();
+        if(p===activePerson || (hover.type==='person' && hover.person===p)){
+          ctx.strokeStyle='#666'; ctx.beginPath(); ctx.arc(p.x,p.y,12,0,Math.PI*2); ctx.stroke();
+        }
+        ctx.fillText(p.name, p.x+12, p.y+4);
+
+        // traits
+        for(var t=0;t<p.traits.length;t++){
+          var tn=p.traits[t], pt=posOf(p,tn);
+          ctx.strokeStyle='#444'; ctx.beginPath(); ctx.moveTo(p.x,p.y); ctx.lineTo(pt.x,pt.y); ctx.stroke();
+          ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(pt.x,pt.y,6,0,Math.PI*2); ctx.fill();
+          if(hover.type==='trait' && hover.person===p && hover.index===t){ ctx.strokeStyle='#888'; ctx.beginPath(); ctx.arc(pt.x,pt.y,9,0,Math.PI*2); ctx.stroke(); }
+          ctx.fillText(tn.text, pt.x+10, pt.y);
         }
 
-        // red node + hover ring
-        ctx.fillStyle='#ff0040'; ctx.beginPath(); ctx.arc(pg.x,pg.y,6,0,Math.PI*2); ctx.fill();
-        if(hover.type==='gen' && hover.person===p && hover.index===g){ ctx.strokeStyle='#c44'; ctx.beginPath(); ctx.arc(pg.x,pg.y,9,0,Math.PI*2); ctx.stroke(); }
-        ctx.fillStyle='#ff0040'; ctx.fillText(gn.text, pg.x+10, pg.y);
+        // generated (red) — only to parent traits
+        for(var g=0; g<p.generated.length; g++){
+          var gn=p.generated[g], pg=posOf(p,gn);
+          if(gn.from && gn.from.length){
+            ctx.strokeStyle='#c33';
+            for(var k=0;k<gn.from.length;k++){
+              var idx=gn.from[k], parent=p.traits[idx]; if(!parent) continue;
+              var pp=posOf(p,parent);
+              ctx.beginPath(); ctx.moveTo(pg.x,pg.y); ctx.lineTo(pp.x,pp.y); ctx.stroke();
+            }
+          }
+          ctx.fillStyle='#ff0040'; ctx.beginPath(); ctx.arc(pg.x,pg.y,6,0,Math.PI*2); ctx.fill();
+          if(hover.type==='gen' && hover.person===p && hover.index===g){ ctx.strokeStyle='#c44'; ctx.beginPath(); ctx.arc(pg.x,pg.y,9,0,Math.PI*2); ctx.stroke(); }
+          ctx.fillStyle='#ff0040'; ctx.fillText(gn.text, pg.x+10, pg.y);
+        }
+      }
+      canvas.style.cursor = hover.type ? 'pointer' : (dragging.type ? 'grabbing' : 'default');
+    }
+
+    // =================== Drag release (robust) =============
+    function releaseDrag(){
+      if (dragging && dragging.type){
+        dragging.type = null; dragging.person = null; dragging.index = -1;
+        saveState(); redraw();
       }
     }
 
-    canvas.style.cursor = hover.type ? 'pointer' : (dragging.type ? 'grabbing' : 'default');
-  }
+    // =================== Inputs ============================
+    var nameInput=document.getElementById('nameInput');
+    var traitInput=document.getElementById('traitInput');
 
-  // =================== Inputs ============================
-  var nameInput=document.getElementById('nameInput');
-  var traitInput=document.getElementById('traitInput');
-
-  // Create person by Enter (centered)
-nameInput.addEventListener('keydown', function(e){
-  if(e.key==='Enter'){
-    var nm=nameInput.value.trim(); if(!nm) return;
-    var p=new Person(nm, canvas.width/2, canvas.height/2);
-    people.push(p); activePerson=p; nameInput.value='';
-    saveState();            // 🔐 persist
-    redraw();               // 🎨 repaint
-    renderSuggestions();    // 💡 refresh right-side suggestions
-  }
-});
-
-
-  // Hover + drag behavior
-  canvas.addEventListener('mousemove', function(e){
-    var m=mouse(e);
-    if(dragging.type){
-      if(dragging.type==='person'){
-        dragging.person.x = m.x - dragging.offx;
-        dragging.person.y = m.y - dragging.offy;
-      } else {
-        var pr=dragging.person, dx=m.x-pr.x, dy=m.y-pr.y;
-        var node = dragging.type==='trait' ? pr.traits[dragging.index] : pr.generated[dragging.index];
-        node.angle = Math.atan2(dy,dx);
-        node.dist  = Math.sqrt(dx*dx+dy*dy);
+    nameInput.addEventListener('keydown', function(e){
+      if(e.key==='Enter'){
+        var nm=nameInput.value.trim(); if(!nm) return;
+        var p=new Person(nm, canvas.width/2, canvas.height/2);
+        people.push(p); activePerson=p; nameInput.value='';
+        saveState(); redraw(); renderSuggestions();
       }
-      redraw(); return;
-    }
-    hover = hitTest(m.x,m.y);
-    redraw();
-  });
+    });
 
-canvas.addEventListener('mousedown', function(e){
-  e.preventDefault(); // stops text-selection while dragging
+    canvas.addEventListener('mousemove', function(e){
+      var m=mouse(e);
+      if(dragging.type){
+        if(dragging.type==='person'){
+          dragging.person.x = m.x - dragging.offx;
+          dragging.person.y = m.y - dragging.offy;
+        } else {
+          var pr=dragging.person, dx=m.x-pr.x, dy=m.y-pr.y;
+          var node = dragging.type==='trait' ? pr.traits[dragging.index] : pr.generated[dragging.index];
+          node.angle = Math.atan2(dy,dx);
+          node.dist  = Math.sqrt(dx*dx+dy*dy);
+        }
+        redraw(); return;
+      }
+      hover = hitTest(m.x,m.y);
+      redraw();
+    });
 
-  var m=mouse(e), h=hitTest(m.x,m.y);
+    canvas.addEventListener('mousedown', function(e){
+      e.preventDefault();
+      var m=mouse(e), h=hitTest(m.x,m.y);
 
-  if(h.type){
-    // A) selecting / dragging existing
-    activePerson=h.person;
-    var idx=people.indexOf(h.person); if(idx>-1){ var pulled=people.splice(idx,1)[0]; people.push(pulled); }
-    if(h.type==='person'){
-      dragging.type='person'; dragging.person=h.person;
-      dragging.offx=m.x-h.person.x; dragging.offy=m.y-h.person.y;
-    } else {
-      dragging.type=h.type; dragging.person=h.person; dragging.index=h.index;
-    }
-    // Optional: save the z-order change
-    saveState();            // 🔐 (z-order changed when we bring to front)
-    redraw();
-    renderSuggestions();    // 💡 show suggestions for the newly active person
-    return;
-  }
+      if(h.type){
+        activePerson=h.person;
+        var idx=people.indexOf(h.person); if(idx>-1){ var pulled=people.splice(idx,1)[0]; people.push(pulled); }
+        if(h.type==='person'){
+          dragging.type='person'; dragging.person=h.person;
+          dragging.offx=m.x-h.person.x; dragging.offy=m.y-h.person.y;
+        } else {
+          dragging.type=h.type; dragging.person=h.person; dragging.index=h.index;
+        }
+        saveState(); redraw(); renderSuggestions();
+        return;
+      }
 
-  // B) create new person at click if a name is ready
-  var nm=nameInput.value.trim();
-  if(nm){
-    var p2=new Person(nm, m.x, m.y);
-    people.push(p2); activePerson=p2; nameInput.value='';
-    saveState();            // 🔐
-    redraw();               // 🎨
-    renderSuggestions();    // 💡
-  }
-});
+      var nm=nameInput.value.trim();
+      if(nm){
+        var p2=new Person(nm, m.x, m.y); people.push(p2); activePerson=p2; nameInput.value='';
+        saveState(); redraw(); renderSuggestions();
+      }
+    });
 
+    // release on various paths
+    window.addEventListener('mouseup', releaseDrag);
+    canvas.addEventListener('mouseup', releaseDrag);
+    document.addEventListener('mouseup', releaseDrag, true);
+    canvas.addEventListener('mouseleave', releaseDrag);
+    window.addEventListener('blur', releaseDrag);
+    document.addEventListener('mousedown', function(e){
+      if (!e.target.closest || !e.target.closest('#webCanvas')) releaseDrag();
+    }, true);
 
-window.addEventListener('mouseup', releaseDrag);
+    traitInput.addEventListener('keydown', function(e){
+      if(e.key==='Enter' && activePerson){
+        var t=traitInput.value.trim(); if(!t) return;
+        activePerson.addTrait(t); traitInput.value='';
+        saveState(); redraw(); renderSuggestions();
+      }
+    });
 
-  canvas.addEventListener('mouseup', releaseDrag);
-document.addEventListener('mouseup', releaseDrag, true);
-canvas.addEventListener('mouseleave', releaseDrag);
-window.addEventListener('blur', releaseDrag);
-
-// If you click anywhere outside the canvas, also drop:
-document.addEventListener('mousedown', function(e){
-  if (!e.target.closest || !e.target.closest('#webCanvas')) releaseDrag();
-}, true);
-
-  // if we moved anything, persist positions
-  saveState();             // 🔐 store new coordinates
-  dragging.type=null; dragging.person=null; dragging.index=-1;
-});
-
-
-  // Add trait by Enter → auto-combos to every previous trait
-traitInput.addEventListener('keydown', function(e){
-  if(e.key==='Enter' && activePerson){
-    var t=traitInput.value.trim(); if(!t) return;
-    activePerson.addTrait(t); traitInput.value='';
-    saveState();            // 🔐 store new trait + any generated combos
-    redraw();               // 🎨
-    renderSuggestions();    // 💡 new combos now available
-  }
-});
-
-
-  // first paint
-  redraw();
-})();
-</script>
-
-
-
+    // load, suggest, paint
+    loadState(); renderSuggestions(); redraw();
+  })();
+  </script>
+</body>
+</html>
