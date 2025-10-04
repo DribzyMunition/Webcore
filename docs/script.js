@@ -1,5 +1,5 @@
 // Webcore interactive  — reselect & drag webs (ES5 safe)
-// v1.5
+// v
 
 
 var canvas = document.getElementById('webCanvas');
