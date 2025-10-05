@@ -486,11 +486,9 @@ loadState(); renderSuggestions(); redraw();
 // (Optional) basic error catcher so we can see issues on-page if any arise
 window.addEventListener('error', function(ev){
   console.log('Webcore error:', ev.message, 'at', ev.filename+':'+ev.lineno+':'+ev.colno);
-}); // ← close the event listener cleanly
+}); // end error listener
 
-})();
-
-
-  </script>
+})(); // end IIFE wrapper
+</script>
 </body>
 </html>
