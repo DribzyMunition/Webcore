@@ -415,6 +415,26 @@
           if (confirm('Delete ' + h.person.name + '?')) removePerson(h.person);
           return;
         }
+
+        // Double-click to rename a trait
+canvas.addEventListener('dblclick', function(e){
+  var m = mouse(e);
+  var h = hitTest(m.x, m.y);
+  if (h.type === 'trait') {
+    var tr = h.person.traits[h.index];
+    var next = prompt('Rename trait', tr.text);
+    if (next && next.trim()) {
+      tr.text = next.trim();
+      // also update its category if you like (used later for “true combinations”)
+      tr.cat = cat(tr.text);
+      saveState(); redraw(); renderSuggestions();
+    }
+  }
+});
+
+
+
+
         
 // QUICK DELETE TRAIT: Alt/Option + click a trait dot
 if (h.type==='trait' && (e.altKey)){
