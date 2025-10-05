@@ -85,7 +85,7 @@
       if(!trait) return -1;
       var n=this.traits.length, base=goldenAngle(n), ring=(n%8>=4)?1:0, dist=110+ring*50;
       var ang=findOpenSpot(this, base, dist);
-      this.traits.push({ text:trait, angle:ang, dist:dist });
+      this.traits.push({ text:trait, angle:ang, dist:dist, cat:cat(trait), strength:2 });
       return this.traits.length-1;
     };
     Person.prototype.isHit = function(mx,my){
@@ -98,7 +98,9 @@
       var data = people.map(function(p){
         return {
           name:p.name, x:p.x, y:p.y, color:p.color,
-          traits:p.traits.map(function(t){ return {text:t.text, angle:t.angle, dist:t.dist}; }),
+          traits:p.traits.map(function(t){
+  return {text:t.text, angle:t.angle, dist:t.dist, cat:t.cat, strength:(t.strength||2)};
+}),
           generated:p.generated.map(function(g){
             return {text:g.text, angle:g.angle, dist:g.dist, from:g.from, w:(g.w||1)};
           })
