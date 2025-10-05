@@ -99,28 +99,35 @@ function brightOrange(){ return '#ff8a00'; } // default
 
 
     // =================== Persistence =======================
-    function saveState(){
-      var data = people.map(function(p){
-        return {
-          name:p.name, x:p.x, y:p.y,
-          traits:p.traits.map(function(t){ return {text:t.text, angle:t.angle, dist:t.dist}; }),
-          generated:p.generated.map(function(g){ return {text:g.text, angle:g.angle, dist:g.dist, from:g.from}; })
-        };
+function saveState(){
+  var data = people.map(function(p){
+    return {
+      name:p.name, x:p.x, y:p.y, color:p.color,                       // ← save color
+      traits:p.traits.map(function(t){ return {text:t.text, angle:t.angle, dist:t.dist}; }),
+      generated:p.generated.map(function(g){                           // ← save weight too
+        return {text:g.text, angle:g.angle, dist:g.dist, from:g.from, w:(g.w||1)};
+      })
+    };
+  });
+  try{ localStorage.setItem('webcore.v1', JSON.stringify(data)); }catch(e){}
+}
+
+function loadState(){
+  var raw = localStorage.getItem('webcore.v1'); if(!raw) return;
+  try{
+    var arr = JSON.parse(raw);
+    people = arr.map(function(p){
+      var P = new Person(p.name, p.x, p.y);
+      P.color = p.color || brightOrange();                                // ← restore color
+      P.traits = (p.traits||[]).map(function(t){ return {text:t.text, angle:t.angle, dist:t.dist}; });
+      P.generated = (p.generated||[]).map(function(g){                     // ← restore weight
+        return {text:g.text, angle:g.angle, dist:g.dist, from:g.from, w:(g.w||1)};
       });
-      try{ localStorage.setItem('webcore.v1', JSON.stringify(data)); }catch(e){}
-    }
-    function loadState(){
-      var raw = localStorage.getItem('webcore.v1'); if(!raw) return;
-      try{
-        var arr = JSON.parse(raw);
-        people = arr.map(function(p){
-          var P = new Person(p.name, p.x, p.y);
-          P.traits = (p.traits||[]).map(function(t){ return {text:t.text, angle:t.angle, dist:t.dist}; });
-          P.generated = (p.generated||[]).map(function(g){ return {text:g.text, angle:g.angle, dist:g.dist, from:g.from}; });
-          return P;
-        });
-      }catch(e){}
-    }
+      return P;
+    });
+  }catch(e){}
+}
+
 
     // =================== Suggestions =======================
     function traitPairs(p){ var out=[], n=p.traits.length; for(var i=0;i<n;i++) for(var j=i+1;j<n;j++) out.push([i,j]); return out; }
