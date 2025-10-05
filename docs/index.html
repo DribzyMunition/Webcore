@@ -16,7 +16,6 @@
     .controls{position:absolute;left:50%;bottom:20px;transform:translateX(-50%);display:flex;gap:8px;z-index:10}
     .controls input{padding:6px 10px;background:#111;color:#fff;border:1px solid #222;outline:none}
     .foot{text-align:center;padding:10px;color:#777}
-    /* Side  panel */
     .sidepanel{position:absolute;top:12px;right:12px;width:260px;background:rgba(255,255,255,0.04);border:1px solid #1d1d1d;border-radius:6px;padding:10px;max-height:70vh;overflow:auto;z-index:20;pointer-events:auto}
     .side-title{color:#9aa;font-weight:700;margin:6px 0 8px}
     .card{border:1px solid #2a2a2a;padding:8px;margin:8px 0;cursor:pointer}
@@ -61,20 +60,17 @@
     window.addEventListener('resize', function(){ resize(); redraw(); });
 
     // =================== Model =============================
-var people=[], activePerson=null, lastAddedIdx=null;
-var CENTER_HIT = 18;  // bigger center dot hit area
-var NODE_HIT   = 12;  // bigger trait/red dot hit area
+    var people=[], activePerson=null, lastAddedIdx=null;
+    var CENTER_HIT = 18;  // bigger center dot hit area
+    var NODE_HIT   = 12;  // bigger trait/red dot hit area
 
+    function brightOrange(){ return '#ff8a00'; } // default color
 
     function Person(name,x,y){
-  this.name=name; this.x=x; this.y=y;
-  this.traits=[]; this.generated=[];
-  this.color = brightOrange(); // 👈 per-person label color
-}
-
-
-// Bright color helper (we’ll add a proper color picker later)
-function brightOrange(){ return '#ff8a00'; } // default
+      this.name=name; this.x=x; this.y=y;
+      this.traits=[]; this.generated=[];
+      this.color = brightOrange(); // per-person label color
+    }
 
     // --- helpers
     function posOf(p, node){ return { x: p.x + Math.cos(node.angle)*node.dist, y: p.y + Math.sin(node.angle)*node.dist }; }
@@ -84,7 +80,7 @@ function brightOrange(){ return '#ff8a00'; } // default
     function tooClose(pt, pts, min){ for(var i=0;i<pts.length;i++){ var dx=pt.x-pts[i].x, dy=pt.y-pts[i].y; if(Math.sqrt(dx*dx+dy*dy)<min) return true; } return false; }
     function findOpenSpot(p, baseAngle, dist){ var pts=nodePositions(p), step=Math.PI/18; for(var t=0;t<36;t++){ var a=baseAngle+t*step; var test={x:p.x+Math.cos(a)*dist, y:p.y+Math.sin(a)*dist}; if(!tooClose(test,pts,26)) return a; } return baseAngle; }
 
-    // ---------  (no auto combos; smart placement) ---------
+    // --------- add trait (no auto combos; smart placement) ---------
     Person.prototype.addTrait=function(trait){
       if(!trait) return -1;
       var n=this.traits.length, base=goldenAngle(n), ring=(n%8>=4)?1:0, dist=110+ring*50;
@@ -93,91 +89,83 @@ function brightOrange(){ return '#ff8a00'; } // default
       return this.traits.length-1;
     };
     Person.prototype.isHit = function(mx,my){
-  var dx = mx - this.x, dy = my - this.y;
-  return Math.sqrt(dx*dx + dy*dy) <= CENTER_HIT; // was 15
-};
-
+      var dx = mx - this.x, dy = my - this.y;
+      return Math.sqrt(dx*dx + dy*dy) <= CENTER_HIT;
+    };
 
     // =================== Persistence =======================
-function saveState(){
-  var data = people.map(function(p){
-    return {
-      name:p.name, x:p.x, y:p.y, color:p.color,                       // ← save color
-      traits:p.traits.map(function(t){ return {text:t.text, angle:t.angle, dist:t.dist}; }),
-      generated:p.generated.map(function(g){                           // ← save weight too
-        return {text:g.text, angle:g.angle, dist:g.dist, from:g.from, w:(g.w||1)};
-      })
-    };
-  });
-  try{ localStorage.setItem('webcore.v1', JSON.stringify(data)); }catch(e){}
-}
-
-function loadState(){
-  var raw = localStorage.getItem('webcore.v1'); if(!raw) return;
-  try{
-    var arr = JSON.parse(raw);
-    people = arr.map(function(p){
-      var P = new Person(p.name, p.x, p.y);
-      P.color = p.color || brightOrange();                                // ← restore color
-      P.traits = (p.traits||[]).map(function(t){ return {text:t.text, angle:t.angle, dist:t.dist}; });
-      P.generated = (p.generated||[]).map(function(g){                     // ← restore weight
-        return {text:g.text, angle:g.angle, dist:g.dist, from:g.from, w:(g.w||1)};
+    function saveState(){
+      var data = people.map(function(p){
+        return {
+          name:p.name, x:p.x, y:p.y, color:p.color,
+          traits:p.traits.map(function(t){ return {text:t.text, angle:t.angle, dist:t.dist}; }),
+          generated:p.generated.map(function(g){
+            return {text:g.text, angle:g.angle, dist:g.dist, from:g.from, w:(g.w||1)};
+          })
+        };
       });
-      return P;
-    });
-  }catch(e){}
-}
+      try{ localStorage.setItem('webcore.v1', JSON.stringify(data)); }catch(e){}
+    }
+    function loadState(){
+      var raw = localStorage.getItem('webcore.v1'); if(!raw) return;
+      try{
+        var arr = JSON.parse(raw);
+        people = arr.map(function(p){
+          var P = new Person(p.name, p.x, p.y);
+          P.color = p.color || brightOrange();
+          P.traits = (p.traits||[]).map(function(t){ return {text:t.text, angle:t.angle, dist:t.dist}; });
+          P.generated = (p.generated||[]).map(function(g){
+            return {text:g.text, angle:g.angle, dist:g.dist, from:g.from, w:(g.w||1)};
+          });
+          return P;
+        });
+      }catch(e){}
+    }
 
+    // =================== Meaningful combo labels ===================
+    function cat(tr){
+      tr = (tr||'').toLowerCase();
+      if (tr.match(/generous|kind|giving/))             return 'warmth';
+      if (tr.match(/ambit|driven|domin|assert/))        return 'dominance';
+      if (tr.match(/excus|blame|avoid/))                return 'avoidance';
+      if (tr.match(/isolat|withdraw|lonely/))           return 'withdrawal';
+      if (tr.match(/attent|perform|show|status/))       return 'attention';
+      if (tr.match(/anx|fear|risk-averse/))             return 'anxiety';
+      if (tr.match(/scarce|rare|last|fomo/))            return 'scarcity';
+      return 'other';
+    }
+    var COMBO_RULES = {
+      'attention+dominance':  { label:'status display',             w:2 },
+      'avoidance+dominance':  { label:'fragile ambition',           w:3 },
+      'attention+withdrawal': { label:'overcompensation in public', w:2 },
+      'anxiety+scarcity':     { label:'panic scarcity response',    w:3 },
+      'attention+warmth':     { label:'performative generosity',    w:2 },
+      'avoidance+warmth':     { label:'soft exit seeking',          w:2 }
+    };
+    function comboMeaning(aText, bText){
+      var A = cat(aText), B = cat(bText);
+      var key = (A <= B ? A+'+'+B : B+'+'+A);
+      var rule = COMBO_RULES[key];
+      if (rule) return { text: rule.label + ' ('+A+'×'+B+')', w: rule.w };
+      return { text: aText + ' × ' + bText, w: 1 };
+    }
 
     // =================== Suggestions =======================
-    function traitPairs(p){ var out=[], n=p.traits.length; for(var i=0;i<n;i++) for(var j=i+1;j<n;j++) out.push([i,j]); return out; }
     function alreadyHasGen(p,i,j){
-      for(var k=0;k<p.generated.length;k++){ var f=p.generated[k].from||[]; if(f.length<2) continue;
-        if((f[0]===i && f[1]===j) || (f[0]===j && f[1]===i)) return true; }
+      for(var k=0;k<p.generated.length;k++){
+        var f=p.generated[k].from||[];
+        if (f && f.length>=2 && ((f[0]===i && f[1]===j) || (f[0]===j && f[1]===i))) return true;
+      }
       return false;
     }
     function scorePair(p,i,j){
       var tA=p.traits[i], tB=p.traits[j];
       var dx=Math.cos(tA.angle)*tA.dist - Math.cos(tB.angle)*tB.dist;
       var dy=Math.sin(tA.angle)*tA.dist - Math.sin(tB.angle)*tB.dist;
-      var spatial = Math.sqrt(dx*dx+dy*dy);            // spacing heuristic
-      var novelty = 1 + Math.random()*0.2;             // tie-breaker
+      var spatial = Math.sqrt(dx*dx+dy*dy);
+      var novelty = 1 + Math.random()*0.2;
       return spatial * novelty;
     }
-          // Soft categories from text
-function cat(tr){
-  tr = (tr||'').toLowerCase();
-  if (tr.match(/generous|kind|giving/))             return 'warmth';
-  if (tr.match(/ambit|driven|domin|assert/))       return 'dominance';
-  if (tr.match(/excus|blame|avoid/))               return 'avoidance';
-  if (tr.match(/isolat|withdraw|lonely/))          return 'withdrawal';
-  if (tr.match(/attent|perform|show|status/))      return 'attention';
-  if (tr.match(/anx|fear|risk-averse/))            return 'anxiety';
-  if (tr.match(/scarce|rare|last|fomo/))           return 'scarcity';
-  return 'other';
-}
-
-// Pairing rules → label + strength
-var COMBO_RULES = {
-  'attention+dominance': { label:'status display',            w:2 },
-  'avoidance+dominance': { label:'fragile ambition',          w:3 },
-  'attention+withdrawal':{ label:'overcompensation in public',w:2 },
-  'anxiety+scarcity':     { label:'panic scarcity response',   w:3 },
-  'attention+warmth':     { label:'performative generosity',   w:2 },
-  'avoidance+warmth':     { label:'soft exit seeking',         w:2 }
-};
-
-function comboMeaning(aText, bText){
-  var A = cat(aText), B = cat(bText);
-  var key = (A <= B ? A+'+'+B : B+'+'+A);
-  var rule = COMBO_RULES[key];
-  if (rule) return { text: rule.label + ' ('+A+'×'+B+')', w: rule.w };
-  return { text: aText + ' × ' + bText, w: 1 };
-}
-
-
-
-    
     function proposeCombos(p, limit, onlyIdx){
       if(!p || p.traits.length<2) return [];
       var pairs=[], n=p.traits.length, i,j;
@@ -198,38 +186,34 @@ function comboMeaning(aText, bText){
 
       if(!activePerson){ box.innerHTML='<div class="card">Select or create a person</div>'; return; }
 
-
-      // Active person header + delete button
+      // Active person header + buttons
       var head = document.createElement('div');
       head.className = 'card';
       head.style.display = 'flex';
       head.style.justifyContent = 'space-between';
       head.style.alignItems = 'center';
       head.innerHTML = '<span><span class="badge">active</span>' + activePerson.name + '</span>';
+
       var del = document.createElement('button');
       del.className = 'btn';
-      del.style.borderColor = '#a33';
-      del.style.color = '#f88';
+      del.style.borderColor = '#a33'; del.style.color = '#f88';
       del.textContent = 'Delete person';
       del.onclick = function(){ if(confirm('Delete ' + activePerson.name + '?')) removePerson(activePerson); };
       head.appendChild(del);
-      
-      // Color cycle button (simple until we add a picker)
-var col = document.createElement('button');
-col.className = 'btn';
-col.textContent = 'Change color';
-col.onclick = function(){
-  var hues = ['#ff8a00','#ff3860','#8a2be2','#00d1b2','#ffd166'];
-  if (!activePerson.color) activePerson.color = '#ff8a00';
-  var cur = hues.indexOf(activePerson.color);
-  activePerson.color = hues[(cur+1+hues.length)%hues.length];
-  saveState(); redraw(); renderSuggestions();
-};
-head.appendChild(col);
-box.appendChild(head);
 
+      var col = document.createElement('button');
+      col.className = 'btn';
+      col.textContent = 'Change color';
+      col.onclick = function(){
+        var hues = ['#ff8a00','#ff3860','#8a2be2','#00d1b2','#ffd166'];
+        if (!activePerson.color) activePerson.color = '#ff8a00';
+        var cur = hues.indexOf(activePerson.color);
+        activePerson.color = hues[(cur+1+hues.length)%hues.length];
+        saveState(); redraw(); renderSuggestions();
+      };
+      head.appendChild(col);
 
-
+      box.appendChild(head);
 
       // Prefer combos that include the newest trait
       var picks = proposeCombos(activePerson, 2, lastAddedIdx);
@@ -249,12 +233,10 @@ box.appendChild(head);
             card.innerHTML = '<span class="badge">combo</span>' + label;
             card.onclick = function(){
               var ang = angleAvg(a.angle, b.angle);
-              // normalize wrap-around
               if (Math.abs(a.angle-b.angle) > Math.PI) { ang += Math.PI; }
               var dist = (a.dist + b.dist)/2 + 20;
-             var m = comboMeaning(a.text, b.text);  // ← maps to a nicer label + weight
-activePerson.generated.push({ text: m.text, angle: ang, dist: dist, from:[pair[0], pair[1]], w: m.w });
-
+              var m = comboMeaning(a.text, b.text);
+              activePerson.generated.push({ text: m.text, angle: ang, dist: dist, from:[pair[0], pair[1]], w: m.w });
               saveState(); redraw(); renderSuggestions();
             };
             box.appendChild(card);
@@ -265,7 +247,7 @@ activePerson.generated.push({ text: m.text, angle: ang, dist: dist, from:[pair[0
       // Quick probe buttons
       var row = document.createElement('div');
       row.className='btnrow';
-      ['xxx','gaming','working'].forEach(function(opt){
+      ['clubbing','gaming','working'].forEach(function(opt){
         var b=document.createElement('button'); b.className='btn'; b.textContent=opt;
         b.onclick=function(){ if(!activePerson) return; lastAddedIdx = activePerson.addTrait('prefers: '+opt); saveState(); redraw(); renderSuggestions(); };
         row.appendChild(b);
@@ -282,8 +264,7 @@ activePerson.generated.push({ text: m.text, angle: ang, dist: dist, from:[pair[0
       for(var i=people.length-1;i>=0;i--){
         var p=people[i], j, pt, dx, dy;
         for(j=p.generated.length-1;j>=0;j--){ pt=posOf(p,p.generated[j]); dx=pt.x-mx; dy=pt.y-my; if(Math.sqrt(dx*dx+dy*dy)<=NODE_HIT) return {type:'gen', person:p, index:j}; }
-for(j=p.traits.length-1;j>=0;j--){ pt=posOf(p,p.traits[j]); dx=pt.x-mx; dy=pt.y-my; if(Math.sqrt(dx*dx+dy*dy)<=NODE_HIT) return {type:'trait', person:p, index:j}; }
-
+        for(j=p.traits.length-1;j>=0;j--){ pt=posOf(p,p.traits[j]); dx=pt.x-mx; dy=pt.y-my; if(Math.sqrt(dx*dx+dy*dy)<=NODE_HIT) return {type:'trait', person:p, index:j}; }
         if(p.isHit(mx,my)) return {type:'person', person:p, index:-1};
       }
       return {type:null, person:null, index:-1};
@@ -304,8 +285,6 @@ for(j=p.traits.length-1;j>=0;j--){ pt=posOf(p,p.traits[j]); dx=pt.x-mx; dy=pt.y-
           ctx.strokeStyle='#666'; ctx.beginPath(); ctx.arc(p.x,p.y,12,0,Math.PI*2); ctx.stroke();
         }
 
-
-
         // traits
         for(var t=0;t<p.traits.length;t++){
           var tn=p.traits[t], pt=posOf(p,tn);
@@ -315,47 +294,43 @@ for(j=p.traits.length-1;j>=0;j--){ pt=posOf(p,p.traits[j]); dx=pt.x-mx; dy=pt.y-
           ctx.fillText(tn.text, pt.x+10, pt.y);
         }
 
-// generated (red) — only to parent traits
-for(var g=0; g<p.generated.length; g++){
-  var gn = p.generated[g], pg = posOf(p, gn);
+        // generated (red) — only to parent traits
+        for(var g=0; g<p.generated.length; g++){
+          var gn = p.generated[g], pg = posOf(p, gn);
 
-  // lines from red node to its parent traits
-  if (gn.from && gn.from.length){
-    ctx.strokeStyle = '#c33';
-    ctx.lineWidth = gn.w || 1;   // thickness if you set a weight
-    for (var k=0; k<gn.from.length; k++){
-      var idx = gn.from[k], parent = p.traits[idx]; if (!parent) continue;
-      var pp = posOf(p, parent);
-      ctx.beginPath(); ctx.moveTo(pg.x, pg.y); ctx.lineTo(pp.x, pp.y); ctx.stroke();
+          if(gn.from && gn.from.length){
+            ctx.strokeStyle='#c33';
+            ctx.lineWidth = gn.w || 1;
+            for(var k=0;k<gn.from.length;k++){
+              var idx = gn.from[k], parent = p.traits[idx]; if(!parent) continue;
+              var pp = posOf(p, parent);
+              ctx.beginPath(); ctx.moveTo(pg.x, pg.y); ctx.lineTo(pp.x, pp.y); ctx.stroke();
+            }
+            ctx.lineWidth = 1;
+          }
+
+          ctx.fillStyle = '#ff0040';
+          ctx.beginPath(); ctx.arc(pg.x, pg.y, 6, 0, Math.PI*2); ctx.fill();
+
+          if(hover.type==='gen' && hover.person===p && hover.index===g){
+            ctx.strokeStyle = '#c44';
+            ctx.beginPath(); ctx.arc(pg.x, pg.y, 9, 0, Math.PI*2); ctx.stroke();
+          }
+
+          ctx.fillStyle = '#ff0040';
+          ctx.fillText(gn.text, pg.x + 10, pg.y);
+        }
+
+        // label on top so it never hides under lines
+        ctx.lineWidth = 4; ctx.strokeStyle = '#000';
+        ctx.strokeText(p.name, p.x + 12, p.y + 4);
+        ctx.lineWidth = 1; ctx.fillStyle = p.color || brightOrange();
+        ctx.fillText(p.name, p.x + 12, p.y + 4);
+      }
+
+      canvas.style.cursor = hover.type ? 'pointer' : (dragging.type ? 'grabbing' : 'default');
     }
-    ctx.lineWidth = 1;           // reset
-  }
 
-  // the red node itself + label
-  ctx.fillStyle = '#ff0040';
-  ctx.beginPath(); ctx.arc(pg.x, pg.y, 6, 0, Math.PI*2); ctx.fill();
-
-  if (hover.type==='gen' && hover.person===p && hover.index===g){
-    ctx.strokeStyle = '#c44';
-    ctx.beginPath(); ctx.arc(pg.x, pg.y, 9, 0, Math.PI*2); ctx.stroke();
-  }
-
-  ctx.fillStyle = '#ff0040';
-  ctx.fillText(gn.text, pg.x + 10, pg.y);
-}
-
-
-// NAME ON TOP (paste these six lines here)
-ctx.lineWidth = 4; ctx.strokeStyle = '#000';
-ctx.strokeText(p.name, p.x + 12, p.y + 4);
-ctx.lineWidth = 1; ctx.fillStyle = p.color || '#ff8a00';
-ctx.fillText(p.name, p.x + 12, p.y + 4);
-
-}  // <— end of people loop
-canvas.style.cursor = hover.type ? 'pointer' : (dragging.type ? 'grabbing' : 'default');
-
-
-    
     // =================== Delete person =====================
     function removePerson(p){
       var idx = people.indexOf(p);
@@ -404,8 +379,7 @@ canvas.style.cursor = hover.type ? 'pointer' : (dragging.type ? 'grabbing' : 'de
             if (Math.abs(A.angle-B.angle) > Math.PI) { ang += Math.PI; }
             var dist = (A.dist + B.dist)/2 + 20;
             var m2 = comboMeaning(A.text, B.text);
-activePerson.generated.push({ text: m2.text, angle: ang, dist: dist, from:[i, j], w: m2.w });
-
+            activePerson.generated.push({ text: m2.text, angle: ang, dist: dist, from:[i, j], w: m2.w });
           }
         }
 
@@ -480,15 +454,15 @@ activePerson.generated.push({ text: m2.text, angle: ang, dist: dist, from:[i, j]
       }
     });
 
-// load, suggest, paint
-loadState(); renderSuggestions(); redraw();
+    // load, suggest, paint
+    loadState(); renderSuggestions(); redraw();
 
-// (Optional) basic error catcher so we can see issues on-page if any arise
-window.addEventListener('error', function(ev){
-  console.log('Webcore error:', ev.message, 'at', ev.filename+':'+ev.lineno+':'+ev.colno);
-}); // end error listener
+    // basic error log so we can see issues on-page if any arise
+    window.addEventListener('error', function(ev){
+      console.log('Webcore error:', ev.message, 'at', ev.filename+':'+ev.lineno+':'+ev.colno);
+    });
 
-})(); // end wrapper
-</script>
+  })();
+  </script>
 </body>
 </html>
