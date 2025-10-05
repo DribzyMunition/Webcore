@@ -115,7 +115,9 @@
         people = arr.map(function(p){
           var P = new Person(p.name, p.x, p.y);
           P.color = p.color || brightOrange();
-          P.traits = (p.traits||[]).map(function(t){ return {text:t.text, angle:t.angle, dist:t.dist}; });
+          P.traits = (p.traits||[]).map(function(t){
+  return {text:t.text, angle:t.angle, dist:t.dist, cat:(t.cat||cat(t.text)), strength:(t.strength||2)};
+});
           P.generated = (p.generated||[]).map(function(g){
             return {text:g.text, angle:g.angle, dist:g.dist, from:g.from, w:(g.w||1)};
           });
