@@ -480,15 +480,16 @@ activePerson.generated.push({ text: m2.text, angle: ang, dist: dist, from:[i, j]
       }
     });
 
-    // load, suggest, paint
-    loadState(); renderSuggestions(); redraw();
+// load, suggest, paint
+loadState(); renderSuggestions(); redraw();
 
-    // (Optional) basic error catcher so we can see issues on-page if any arise
-    window.addEventListener('error', function(ev){
-      console.log('Webcore error:', ev.message, 'at', ev.filename+':'+ev.lineno+':'+ev.colno);
-    }
-    });
-  })();
+// (Optional) basic error catcher so we can see issues on-page if any arise
+window.addEventListener('error', function(ev){
+  console.log('Webcore error:', ev.message, 'at', ev.filename+':'+ev.lineno+':'+ev.colno);
+}); // ← close the event listener cleanly
+
+})();
+
 
   </script>
 </body>
